@@ -1,0 +1,314 @@
+{
+  "log": {
+    "loglevel": "warning",
+    "access": "/var/log/xray/access.log",
+    "error": "/var/log/xray/error.log"
+  },
+  "inbounds": [
+    {
+      "port": 443,
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {
+            "id": "133ec15a-6e65-4564-8045-63213c3e7c70",
+            "flow": "xtls-rprx-vision",
+            "encryption": "none",
+            "level": 0
+          },
+          {
+            "id": "233ec15a-6e65-4564-8045-63213c3e7c71",
+            "flow": "xtls-rprx-vision",
+            "encryption": "none",
+            "level": 1,
+            "email": "user2@example.com"
+          }
+        ],
+        "decryption": "none",
+        "fallbacks": [
+          {
+            "dest": 80
+          },
+          {
+            "path": "/ws",
+            "dest": 443,
+            "xver": 1
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "ws",
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "your-domain.railway.app",
+          "allowInsecure": false,
+          "fingerprint": "chrome",
+          "alpn": ["h2", "http/1.1"],
+          "minVersion": "1.2",
+          "maxVersion": "1.3",
+          "cipherSuites": "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256"
+        },
+        "wsSettings": {
+          "path": "/ws",
+          "headers": {
+            "Host": "your-domain.railway.app"
+          },
+          "acceptProxyProtocol": false
+        }
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": ["http", "tls", "quic"]
+      }
+    },
+    {
+      "port": 444,
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {
+            "id": "133ec15a-6e65-4564-8045-63213c3e7c70",
+            "flow": "xtls-rprx-vision",
+            "encryption": "none",
+            "level": 0
+          }
+        ],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "xhttp",
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "your-domain.railway.app",
+          "allowInsecure": false,
+          "fingerprint": "chrome",
+          "alpn": ["h2", "http/1.1"]
+        },
+        "xhttpSettings": {
+          "path": "/xhttp",
+          "mode": "packet",
+          "extra": {
+            "download": {
+              "speed": 0,
+              "conn": 0
+            },
+            "upload": {
+              "speed": 0,
+              "conn": 0
+            }
+          }
+        }
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": ["http", "tls", "quic"]
+      }
+    },
+    {
+      "port": 445,
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {
+            "id": "133ec15a-6e65-4564-8045-63213c3e7c70",
+            "encryption": "none",
+            "level": 0
+          }
+        ],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "grpc",
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "your-domain.railway.app",
+          "allowInsecure": false,
+          "fingerprint": "chrome",
+          "alpn": ["h2"]
+        },
+        "grpcSettings": {
+          "serviceName": "xray",
+          "multiMode": true,
+          "idleTimeout": 60,
+          "healthCheck": {
+            "enabled": true,
+            "interval": 30,
+            "timeout": 10
+          }
+        }
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": ["http", "tls", "quic"]
+      }
+    },
+    {
+      "port": 446,
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {
+            "id": "133ec15a-6e65-4564-8045-63213c3e7c70",
+            "flow": "xtls-rprx-vision",
+            "encryption": "none",
+            "level": 0
+          }
+        ],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "show": false,
+          "dest": "www.cloudflare.com:443",
+          "xver": 0,
+          "serverNames": [
+            "your-domain.railway.app",
+            "cloudflare.com",
+            "www.cloudflare.com",
+            "cdn.cloudflare.com"
+          ],
+          "privateKey": "3e22e9e1-6e65-4564-8045-63213c3e7c70",
+          "shortIds": [
+            "6e657479",
+            "6e657480",
+            "6e657481"
+          ],
+          "maxTimeDiff": 60000,
+          "masterKeyLog": false
+        }
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": ["http", "tls", "quic"]
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "protocol": "freedom",
+      "settings": {},
+      "tag": "direct"
+    },
+    {
+      "protocol": "blackhole",
+      "settings": {},
+      "tag": "block"
+    },
+    {
+      "protocol": "dns",
+      "settings": {},
+      "tag": "dns-out"
+    }
+  ],
+  "routing": {
+    "domainStrategy": "IPIfNonMatch",
+    "rules": [
+      {
+        "type": "field",
+        "ip": ["geoip:private"],
+        "outboundTag": "block"
+      },
+      {
+        "type": "field",
+        "domain": ["geosite:category-ads-all"],
+        "outboundTag": "block"
+      },
+      {
+        "type": "field",
+        "protocol": ["bittorrent"],
+        "outboundTag": "block"
+      },
+      {
+        "type": "field",
+        "domain": ["geosite:cn"],
+        "outboundTag": "direct"
+      },
+      {
+        "type": "field",
+        "ip": ["geoip:cn"],
+        "outboundTag": "direct"
+      }
+    ]
+  },
+  "policy": {
+    "levels": {
+      "0": {
+        "handshake": 4,
+        "connIdle": 300,
+        "uplinkOnly": 2,
+        "downlinkOnly": 5,
+        "bufferSize": 1024
+      },
+      "1": {
+        "handshake": 2,
+        "connIdle": 150,
+        "uplinkOnly": 1,
+        "downlinkOnly": 3,
+        "bufferSize": 512
+      }
+    },
+    "system": {
+      "statsInboundUplink": true,
+      "statsInboundDownlink": true,
+      "statsOutboundUplink": true,
+      "statsOutboundDownlink": true
+    }
+  },
+  "stats": {},
+  "api": {
+    "tag": "api",
+    "services": ["HandlerService", "LoggerService", "StatsService"],
+    "listen": "127.0.0.1:10085"
+  },
+  "dns": {
+    "servers": [
+      "1.1.1.1",
+      "8.8.8.8",
+      "9.9.9.9",
+      "https+local://dns.cloudflare.com/dns-query",
+      {
+        "address": "https+local://dns.google/dns-query",
+        "domains": ["geosite:google"]
+      }
+    ]
+  },
+  "transport": {
+    "kcpSettings": {
+      "mtu": 1350,
+      "tti": 50,
+      "uplinkCapacity": 12,
+      "downlinkCapacity": 100,
+      "congestion": true,
+      "readBufferSize": 2,
+      "writeBufferSize": 2,
+      "header": {
+        "type": "none"
+      }
+    },
+    "quicSettings": {
+      "security": "none",
+      "key": "",
+      "header": {
+        "type": "none"
+      }
+    },
+    "httpSettings": {
+      "path": "/",
+      "host": ["your-domain.railway.app"]
+    }
+  },
+  "reverse": {
+    "bridges": [
+      {
+        "tag": "bridge",
+        "domain": "test.xray.com"
+      }
+    ]
+  },
+  "fakedns": {
+    "ipPool": "198.18.0.0/15",
+    "poolSize": 65535
+  }
+}

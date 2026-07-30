@@ -1,0 +1,27 @@
+version: "3.9"
+
+services:
+  xlevelup-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # برای پین کردن نسخه Xray هنگام تست لوکال:
+      # args:
+      #   XRAY_VERSION: v25.5.16
+    image: xlevelup-engine:local
+    restart: unless-stopped
+    environment:
+      PORT: "8080"
+      XLEVELUP_DOMAIN: "localhost"
+      UUID_VLESS: "00000000-0000-0000-0000-000000000000"
+    ports:
+      - "8080:8080"
+      - "10001:10001"
+      - "10002:10002"
+      - "10003:10003"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s

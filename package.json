@@ -1,0 +1,15 @@
+{
+  "name": "xlevelup-panel-api",
+  "version": "1.0.0",
+  "private": true,
+  "main": "panel-api.js",
+  "scripts": {
+    "start": "node panel-api.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

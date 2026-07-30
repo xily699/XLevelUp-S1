@@ -24,7 +24,7 @@
       "protocol": "vless",
       "settings": {
         "clients": [
-          { "id": "REPLACE-WITH-UUID-1", "email": "user1@xlevelup", "level": 0 }
+          { "id": "41dca55b-7cbe-43a3-9915-0470cb7aca0a", "email": "user1@xlevelup", "level": 0 }
         ],
         "decryption": "none"
       },
@@ -36,7 +36,7 @@
             { "certificateFile": "/etc/xray/cert.pem", "keyFile": "/etc/xray/key.pem" }
           ]
         },
-        "wsSettings": { "path": "/xvless", "headers": { "Host": "YOUR-DOMAIN.app" } }
+        "wsSettings": { "path": "/xvless", "headers": { "Host": "xlevelup-temp.up.railway.app" } }
       }
     },
     {
@@ -79,7 +79,7 @@
             { "certificateFile": "/etc/xray/cert.pem", "keyFile": "/etc/xray/key.pem" }
           ]
         },
-        "wsSettings": { "path": "/xvmess", "headers": { "Host": "YOUR-DOMAIN.app" } }
+        "wsSettings": { "path": "/xvmess", "headers": { "Host": "xlevelup-temp.up.railway.app" } }
       }
     },
     {

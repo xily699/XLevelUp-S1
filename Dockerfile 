@@ -1,0 +1,28 @@
+# syntax=docker/dockerfile:1.7
+###############################################################################
+# XLevelUp Engine — Dockerfile حرفه‌ای، مخصوص Railway
+###############################################################################
+
+ARG XRAY_VERSION=""
+ARG BUILD_SHA="unknown"
+ARG BUILD_DATE="unknown"
+
+# ---------- Stage 1: دریافت باینری Xray-core از ریلیز رسمی ----------
+FROM alpine:3.20 AS xray-fetch
+ARG XRAY_VERSION
+
+RUN apk add --no-cache curl unzip ca-certificates && \
+    if [ -z "$XRAY_VERSION" ]; then \
+        XRAY_VERSION=$(curl -fsSL https://api.github.com/repos/XTLS/Xray-core/releases/latest \
+            | grep -oE '"tag_name":[[:space:]]*"[^"]+"' | sed -E 's/.*"([^"]+)"$/\1/'); \
+    fi && \
+    echo "==> در حال دانلود Xray-core نسخه: ${XRAY_VERSION}" && \
+    curl -fL -o /tmp/xray.zip \
+        "https://github.com/XTLS/Xray-core/releases/download/${XRAY_VERSION}/Xray-linux-64.zip" && \
+    unzip -q /tmp/xray.zip -d /tmp/xray && \
+    mv /tmp/xray/xray /usr/local/bin/xray && \
+    chmod +x /usr/local/bin/xray && \
+    rm -rf /tmp/xray /tmp/xray.zip && \
+    echo "${XRAY_VERSION}" > /xray-version.txt
+
+# ---------- Stage

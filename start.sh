@@ -92,6 +92,29 @@ except Exception:
 
 start_xray
 echo "[start.sh] در حال اجرای پنل پایتون (uvicorn)..."
+
+# ── X5.3 FIX: جلوگیری از تصادم پورت بین پنل پایتون و Xray-core ──────────────
+# ریشه‌ی کرش «Errno 98: Address already in use»: Railway بعضی وقت‌ها، بعد از
+# ساخته‌شدن TCP Proxy برای یکی از پورت‌های Xray (مثلاً 12004 برای REALITY)،
+# متغیر PORT خودِ سرویس رو هم به همون پورت تغییر می‌ده — و پنل پایتون قبلاً
+# کورکورانه از همون $PORT استفاده می‌کرد، دقیقاً همونی که Xray-core (REALITY)
+# از قبل رویش گوش می‌داد. اینجا دیگه هیچ‌وقت کورکورانه به $PORT اعتماد
+# نمی‌کنیم: اگه $PORT با یکی از پورت‌های رزرو-شده‌ی Xray (12001-12005) برخورد
+# داشت، به‌جاش از WEB_PORT (پیش‌فرض 8080 — همون‌چیزی که تو Railway →
+# Networking → Public Networking روش دامنه ساختی) استفاده می‌کنیم.
+RESERVED_XRAY_PORTS="12001 12002 12003 12004 12005"
+CANDIDATE_PORT="${PORT:-${WEB_PORT:-8080}}"
+FINAL_PORT="$CANDIDATE_PORT"
+for rp in $RESERVED_XRAY_PORTS; do
+  if [ "$CANDIDATE_PORT" = "$rp" ]; then
+    FINAL_PORT="${WEB_PORT:-8080}"
+    echo "[start.sh] هشدار: \$PORT=$CANDIDATE_PORT با پورت رزرو-شده‌ی Xray ($rp) برخورد داره — به‌جاش رو $FINAL_PORT بالا میایم."
+    echo "[start.sh] نکته: مطمئن شو تو Railway → Settings → Networking → Public Networking، دامنه‌ی HTTP رو Port $FINAL_PORT هدف‌گیری کرده باشه."
+    break
+  fi
+done
+echo "[start.sh] پنل پایتون رو پورت $FINAL_PORT بالا میاد."
+export PORT="$FINAL_PORT"
 # نکته‌ی حیاتی: عمداً «python3 main.py» اجرا نمی‌کنیم. وقتی main.py مستقیم اجرا
 # بشه، پایتون اسمش رو __main__ می‌ذاره، نه main — و پایین همون فایل خط
 # `uvicorn.run("main:app", ...)` هست که به یوویکورن می‌گه ماژول «main» رو (که
@@ -105,6 +128,6 @@ echo "[start.sh] در حال اجرای پنل پایتون (uvicorn)..."
 # 'relay_vless'». راه‌حل: از همون اول با -m uvicorn اجرا کنیم تا ماژول با اسم
 # درست («main») فقط یک‌بار لود بشه، نه دوبار زیر دو اسم متفاوت.
 exec python3 -m uvicorn main:app \
-  --host 0.0.0.0 --port "${PORT:-8000}" \
+  --host 0.0.0.0 --port "$FINAL_PORT" \
   --ws-ping-interval 20 --ws-ping-timeout 25 \
   --timeout-keep-alive 75

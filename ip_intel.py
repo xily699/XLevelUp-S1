@@ -228,15 +228,13 @@ async def api_subscription(uuid: str, host: str = "", path: str = "", top: int =
         "idle_timeout": "30s", "interrupt_exist_connections": True,
     })
     outbounds.append({"type": "direct", "tag": "direct"})
-    outbounds.append({"type": "block", "tag": "block"})
-    outbounds.append({"type": "dns", "tag": "dns-out"})
 
     return JSONResponse({
         "log": {"level": "warn", "timestamp": True},
         "dns": {
             "servers": [
-                {"tag": "cf-doh", "address": "https://1.1.1.1/dns-query", "detour": "x5g-auto"},
-                {"tag": "local", "address": "local", "detour": "direct"},
+                {"type": "https", "tag": "cf-doh", "server": "1.1.1.1", "detour": "x5g-auto"},
+                {"type": "local", "tag": "local"},
             ],
             "rules": [{"outbound": "any", "server": "local"}],
             "final": "cf-doh",
@@ -253,9 +251,11 @@ async def api_subscription(uuid: str, host: str = "", path: str = "", top: int =
         "outbounds": outbounds,
         "route": {
             "rules": [
-                {"protocol": "dns", "outbound": "dns-out"},
+                {"action": "sniff"},
+                {"protocol": "dns", "action": "hijack-dns"},
                 {"ip_is_private": True, "outbound": "direct"},
             ],
+            "default_domain_resolver": "local",
             "final": "x5g-auto",
             "auto_detect_interface": True,
         },

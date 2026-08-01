@@ -1001,24 +1001,49 @@ a{color:inherit;text-decoration:none}
         </div>
       </div>
       <div class="cp-block mb16">
-        <div class="cp-block-label"><i class="ti ti-plug-connected"></i> پروتکل انتقال</div>
+        <div class="cp-block-label"><i class="ti ti-plug-connected"></i> پروتکل انتقال <span style="font-size:9px;color:var(--t3);font-weight:400">— هر روشی که پروژه واقعاً پشتیبانی می‌کنه</span></div>
         <select id="nl-proto" style="display:none">
           <option value="vless-ws">VLESS / WebSocket</option>
           <option value="xhttp">XHTTP Ultra · mode: auto</option>
+          <option value="grpc">VLESS / gRPC (Xray Native)</option>
+          <option value="reality">VLESS / REALITY + Vision (Xray Native)</option>
+          <option value="pq">VLESS Post-Quantum (Xray Native)</option>
         </select>
         <div class="proto-cards" style="grid-template-columns:repeat(2,1fr)">
-          <div class="proto-card active" data-val="vless-ws" onclick="selectProto('vless-ws',this)">
+          <div class="proto-card active" data-val="vless-ws" data-native="0" onclick="selectProto('vless-ws',this)">
             <div class="proto-card-check"><i class="ti ti-check"></i></div>
             <div class="proto-card-icon"><i class="ti ti-link"></i></div>
             <div class="proto-card-title">VLESS / WS</div>
-            <div class="proto-card-desc">پایدار و همه‌منظوره</div>
+            <div class="proto-card-desc">پایدار و همه‌منظوره · از طریق Worker</div>
           </div>
-          <div class="proto-card" data-val="xhttp" onclick="selectProto('xhttp',this)">
+          <div class="proto-card" data-val="xhttp" data-native="0" onclick="selectProto('xhttp',this)">
             <div class="proto-card-check"><i class="ti ti-check"></i></div>
             <div class="proto-card-icon"><i class="ti ti-bolt"></i></div>
             <div class="proto-card-title">XHTTP · mode: auto</div>
-            <div class="proto-card-desc">انتخاب خودکار packet-up/stream-up</div>
+            <div class="proto-card-desc">کمترین تأخیر · از طریق Worker</div>
           </div>
+          <div class="proto-card" data-val="grpc" data-native="1" onclick="selectProto('grpc',this)">
+            <div class="proto-card-check"><i class="ti ti-check"></i></div>
+            <div class="proto-card-icon"><i class="ti ti-affiliate"></i></div>
+            <div class="proto-card-title">VLESS / gRPC</div>
+            <div class="proto-card-desc">Xray Native · نشست طولانی/چندگانه پایدار</div>
+          </div>
+          <div class="proto-card" data-val="reality" data-native="1" onclick="selectProto('reality',this)">
+            <div class="proto-card-check"><i class="ti ti-check"></i></div>
+            <div class="proto-card-icon"><i class="ti ti-eye-off"></i></div>
+            <div class="proto-card-title">REALITY + Vision</div>
+            <div class="proto-card-desc">Xray Native · بیشترین مخفی‌کاری</div>
+          </div>
+          <div class="proto-card" data-val="pq" data-native="1" onclick="selectProto('pq',this)">
+            <div class="proto-card-check"><i class="ti ti-check"></i></div>
+            <div class="proto-card-icon"><i class="ti ti-atom-2"></i></div>
+            <div class="proto-card-title">Post-Quantum</div>
+            <div class="proto-card-desc">Xray Native · رمزنگاری ضدکوانتومی (تازه)</div>
+          </div>
+        </div>
+        <div id="proto-native-note" style="display:none;margin-top:9px;padding:9px 10px;border-radius:10px;background:rgba(255,184,77,.08);border:1px solid rgba(255,184,77,.25);font-size:10.5px;line-height:1.8;color:var(--t2)">
+          این پروتکل مستقیم از Xray-core سرو می‌شه (نه از پشت Worker) — روی یه پورت اختصاصی که باید براش Railway TCP Proxy فعال باشه.
+          کانفیگ رو همینجا با «ساخت کانفیگ» می‌سازی، ولی لینک نهایی رو باید از تب <b>داشبورد → «لینک‌های بومی Xray-core»</b> بگیری، نه از پایین همین فرم.
         </div>
       </div>
       <div class="cp-row">
@@ -1505,7 +1530,7 @@ function protoBadge(p){
   const v=m[p]||m['vless-ws'];
   return `<span class="proto-chip ${v[1]}">${v[0]}</span>`;
 }
-async function checkAuth(){try{const r=await fetch('/api/me');const d=await r.json();if(!d.authenticated)location.href='/login';}catch(e){location.href='/login'}}
+async function checkAuth(){try{const r=await fetch('/api/me');const d=await r.json();if(!d.authenticated){location.href='/login';return false;}return true;}catch(e){location.href='/login';return false;}}
 async function logout(){try{await fetch('/api/logout',{method:'POST'})}catch(e){}location.href='/login'}
 document.getElementById('logout-btn').addEventListener('click',logout);
 async function authF(url,opts={}){
@@ -1528,6 +1553,8 @@ function selectProto(val,el){
   document.getElementById('nl-proto').value = val;
   document.querySelectorAll('.proto-card').forEach(c=>c.classList.remove('active'));
   el.classList.add('active');
+  const note=document.getElementById('proto-native-note');
+  if(note) note.style.display = (el.dataset.native==='1') ? 'block' : 'none';
 }
 function setIpLimit(n,el){
   document.getElementById('nl-iplimit').value = n;
@@ -2367,9 +2394,14 @@ function wsConn(){const u=document.getElementById('ws-uuid').value.trim();if(!u)
 function wsSend(){const m=document.getElementById('ws-msg').value;if(!m||!ws||ws.readyState!==1)return;ws.send(m);wsLog('sent','ارسال: '+m);document.getElementById('ws-msg').value=''}
 function wsDisc(){if(ws)ws.close()}
 document.addEventListener('DOMContentLoaded',async()=>{
-  await checkAuth();
+  // X5.3 FIX: initCharts و پرشدن UI پایه دیگه پشت await checkAuth() قفل نیست —
+  // این همون علتِ «بعضی گزینه‌ها دیر دیده می‌شه» بود: قبلاً کل صفحه تا رسیدن
+  // پاسخ /api/me معطل می‌موند و محو به‌نظر می‌رسید. حالا اسکلت صفحه فوری ساخته
+  // می‌شه، auth موازی چک می‌شه، و اگه نامعتبر بود همون لحظه ریدایرکت می‌کنه.
   initCharts();
   document.getElementById('set-host').textContent=location.host;
+  const authOk = await checkAuth();
+  if(authOk===false) return; // checkAuth خودش ریدایرکت به لاگین رو انجام می‌ده
   fetchStats();loadUsers();loadLinks();loadXrayStatus();
   setInterval(fetchStats,4000);
   setInterval(loadXrayStatus,15000);

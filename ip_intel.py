@@ -228,8 +228,6 @@ async def api_subscription(uuid: str, host: str = "", path: str = "", top: int =
         "idle_timeout": "30s", "interrupt_exist_connections": True,
     })
     outbounds.append({"type": "direct", "tag": "direct"})
-    outbounds.append({"type": "block", "tag": "block"})
-    outbounds.append({"type": "dns", "tag": "dns-out"})
 
     return JSONResponse({
         "log": {"level": "warn", "timestamp": True},
@@ -253,9 +251,11 @@ async def api_subscription(uuid: str, host: str = "", path: str = "", top: int =
         "outbounds": outbounds,
         "route": {
             "rules": [
-                {"protocol": "dns", "outbound": "dns-out"},
+                {"action": "sniff"},
+                {"protocol": "dns", "action": "hijack-dns"},
                 {"ip_is_private": True, "outbound": "direct"},
             ],
+            "default_domain_resolver": "local",
             "final": "x5g-auto",
             "auto_detect_interface": True,
         },

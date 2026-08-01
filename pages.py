@@ -208,6 +208,16 @@ a{color:inherit;text-decoration:none}
 .sidebar.open .nav-it:nth-child(6){transition-delay:.19s}
 .sidebar.open .nav-it:nth-child(7){transition-delay:.22s}
 .sidebar.open .nav-acc{transition-delay:.25s}
+/* X5.3 FIX — باگ اصلیِ «منو نیمه‌باز با گزینه‌های محو»:
+   نوار کناری روی صفحه‌های عریض (دسکتاپ، یا وب‌ویوهایی که width واقعی گوشی رو
+   درست گزارش نمی‌دن و بیشتر از ۱۰۵۰px حساب می‌کنن) همیشه ثابت و نمایان می‌مونه
+   (position:fixed) — ولی چون opacity:0 بالا فقط با کلاس .open خنثی می‌شه و اون
+   کلاس هیچ‌وقت خودکار ست نمی‌شه، آیتم‌های منو برای همیشه محو می‌موندن. این
+   قانون قویاً مجبورشون می‌کنه هرجا نوار کناری «کشویی موبایل» نیست، همیشه دیده
+   بشن — صرف‌نظر از اینکه .open ست شده یا نه: */
+@media(min-width:1051px){
+  .sidebar .nav-it,.sidebar .nav-acc,.sidebar .nav-sec{opacity:1!important;transform:none!important}
+}
 @media(min-width:769px){
   .sidebar .nav-it,.sidebar .nav-acc,.sidebar .nav-sec{opacity:1;transform:none}
 }
@@ -226,8 +236,8 @@ a{color:inherit;text-decoration:none}
 .mob-right{display:flex;gap:6px}
 .menu-btn,.theme-mob{background:var(--accent-d);border:1px solid var(--card-b);color:var(--t2);width:34px;height:34px;border-radius:8px;font-size:17px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.15s}
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);z-index:190;
-  opacity:0;visibility:hidden;transition:opacity .28s ease,visibility 0s linear .28s,backdrop-filter .28s ease}
-.overlay.show{opacity:1;visibility:visible;transition:opacity .28s ease,visibility 0s linear 0s,backdrop-filter .28s ease}
+  opacity:0;visibility:hidden;pointer-events:none;transition:opacity .28s ease,visibility 0s linear .28s,backdrop-filter .28s ease}
+.overlay.show{opacity:1;visibility:visible;pointer-events:auto;transition:opacity .28s ease,visibility 0s linear 0s,backdrop-filter .28s ease}
 .main{margin-right:var(--sidebar-w);flex:1;padding:28px 28px 60px;min-width:0;transition:margin .25s}
 .pg{display:none}
 .pg.on{display:block;animation:fi .2s ease}

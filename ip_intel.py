@@ -188,11 +188,22 @@ async def api_pool(limit: int = 20):
 
 
 @router.get("/subscription/{uuid}")
-async def api_subscription(uuid: str, host: str = "", path: str = "", top: int = 6):
-    """خروجی sing-box واقعی: یه outbound به‌ازای هر IP برتر (server=IP، ولی
-    tls.server_name/transport.headers.Host = دامنه‌ی Worker)، همه زیر یک گروه
-    urltest با interval/tolerance کوتاه — این دقیقاً همون چیزیه که باعث می‌شه
-    sing-box خودش ظرف چند ثانیه، بدون صبر ۱۰-۱۵ ثانیه‌ای، بره سراغ IP بعدی."""
+async def api_subscription(uuid: str, host: str = "", path: str = "", top: int = 6,
+                            interval: str = "5s", tolerance: int = 30):
+    """X5.3: خروجی حالا یک کانفیگ *کامل و مستقل* sing-box است — مستقیماً به‌عنوان
+    Subscription URL در sing-box for Android/iOS/desktop قابل import است، بدون
+    نیاز به merge دستی (مشکل قبلی: فیلد اضافه‌ی «_note» باعث رد شدن کل کانفیگ
+    توسط دیکودر سخت‌گیر sing-box می‌شد — اینجا دیگه هیچ فیلد ناشناخته‌ای نیست).
+
+    برای «صفر تا کمترین تأخیر ممکن هنگام قطع اتصال»:
+      • interrupt_exist_connections=true → به‌محض اینکه urltest بفهمه یک IP بهتره
+        (یا IP فعلی قطع شده)، همون لحظه سشن‌های باز رو هم به IP جدید منتقل
+        می‌کنه — منتظر بسته‌شدن طبیعی سشن نمی‌مونه.
+      • interval پیش‌فرض 5s (نه 10s قبلی) — می‌تونی با ?interval=3s حتی
+        تهاجمی‌ترش کنی، هرچی کمتر باشه تعداد تست بیشتر و خرج سرور/باتری بیشتره.
+      • tolerance پایین (30ms پیش‌فرض) یعنی sing-box با اختلاف کوچیک هم سوییچ
+        می‌کنه، نه فقط وقتی IP فعلی کاملاً بمیره.
+    """
     if not host:
         raise HTTPException(400, "پارامتر host (دامنه‌ی Worker) لازم است")
     ranked = sorted(POOL.values(), key=lambda r: r["score"], reverse=True)[:max(1, min(top, 12))]
@@ -202,7 +213,7 @@ async def api_subscription(uuid: str, host: str = "", path: str = "", top: int =
     outbounds = []
     tags = []
     for i, r in enumerate(ranked):
-        tag = f"x5g-edge-{i+1} ({r['ip']})"
+        tag = f"x5g-edge-{i+1}-{r['ip']}"
         tags.append(tag)
         outbounds.append({
             "type": "vless", "tag": tag,
@@ -213,10 +224,39 @@ async def api_subscription(uuid: str, host: str = "", path: str = "", top: int =
     outbounds.append({
         "type": "urltest", "tag": "x5g-auto", "outbounds": tags,
         "url": "https://cp.cloudflare.com/generate_204",
-        "interval": "10s", "tolerance": 50, "idle_timeout": "5m",
+        "interval": interval, "tolerance": max(0, min(tolerance, 300)),
+        "idle_timeout": "30s", "interrupt_exist_connections": True,
     })
+    outbounds.append({"type": "direct", "tag": "direct"})
+    outbounds.append({"type": "block", "tag": "block"})
+    outbounds.append({"type": "dns", "tag": "dns-out"})
+
     return JSONResponse({
+        "log": {"level": "warn", "timestamp": True},
+        "dns": {
+            "servers": [
+                {"tag": "cf-doh", "address": "https://1.1.1.1/dns-query", "detour": "x5g-auto"},
+                {"tag": "local", "address": "local", "detour": "direct"},
+            ],
+            "rules": [{"outbound": "any", "server": "local"}],
+            "final": "cf-doh",
+            "independent_cache": True,
+        },
+        "inbounds": [
+            {
+                "type": "tun", "tag": "tun-in",
+                "interface_name": "x5g-tun", "address": ["172.19.0.1/28"],
+                "auto_route": True, "strict_route": True, "stack": "system",
+                "sniff": True,
+            }
+        ],
         "outbounds": outbounds,
-        "route": {"final": "x5g-auto"},
-        "_note": "این یه بلوک outbounds/route جزئیه — تو کانفیگ کامل sing-boxت زیر outbounds/route ادغامش کن.",
+        "route": {
+            "rules": [
+                {"protocol": "dns", "outbound": "dns-out"},
+                {"ip_is_private": True, "outbound": "direct"},
+            ],
+            "final": "x5g-auto",
+            "auto_detect_interface": True,
+        },
     })

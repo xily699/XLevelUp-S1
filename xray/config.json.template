@@ -1,0 +1,88 @@
+{
+  "log": { "loglevel": "warning" },
+
+  "api": {
+    "tag": "api",
+    "services": ["HandlerService", "StatsService", "LoggerService", "ReflectionService"]
+  },
+  "stats": {},
+  "policy": {
+    "levels": { "0": { "statsUserUplink": true, "statsUserDownlink": true } },
+    "system": { "statsInboundUplink": true, "statsInboundDownlink": true }
+  },
+
+  "inbounds": [
+    {
+      "listen": "127.0.0.1",
+      "port": ${XRAY_API_PORT},
+      "protocol": "dokodemo-door",
+      "settings": { "address": "127.0.0.1" },
+      "tag": "api"
+    },
+    {
+      "listen": "0.0.0.0",
+      "port": 12001,
+      "protocol": "vless",
+      "settings": { "clients": [], "decryption": "none" },
+      "streamSettings": { "network": "ws", "wsSettings": { "path": "/xray-ws" } },
+      "sniffing": { "enabled": true, "destOverride": ["http", "tls"] },
+      "tag": "vless-ws-xray"
+    },
+    {
+      "listen": "0.0.0.0",
+      "port": 12002,
+      "protocol": "vless",
+      "settings": { "clients": [], "decryption": "none" },
+      "streamSettings": { "network": "grpc", "grpcSettings": { "serviceName": "xrgrpc" } },
+      "sniffing": { "enabled": true, "destOverride": ["http", "tls"] },
+      "tag": "vless-grpc"
+    },
+    {
+      "listen": "0.0.0.0",
+      "port": 12003,
+      "protocol": "vless",
+      "settings": { "clients": [], "decryption": "none" },
+      "streamSettings": { "network": "splithttp", "splithttpSettings": { "path": "/xray-split" } },
+      "sniffing": { "enabled": true, "destOverride": ["http", "tls"] },
+      "tag": "vless-splithttp"
+    },
+    {
+      "listen": "0.0.0.0",
+      "port": 12004,
+      "protocol": "vless",
+      "settings": { "clients": [], "decryption": "none" },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "show": false,
+          "dest": "${REALITY_DEST}",
+          "xver": 0,
+          "serverNames": ["${REALITY_SERVER_NAME}"],
+          "privateKey": "${REALITY_PRIVATE_KEY}",
+          "shortIds": ["${REALITY_SHORT_ID}"]
+        }
+      },
+      "tag": "vless-reality-vision"
+    },
+    {
+      "listen": "0.0.0.0",
+      "port": 12005,
+      "protocol": "vless",
+      "settings": { "clients": [], "decryption": "${VLESS_PQ_DECRYPTION}" },
+      "streamSettings": { "network": "tcp" },
+      "sniffing": { "enabled": true, "destOverride": ["http", "tls"] },
+      "tag": "vless-pq-encryption"
+    }
+  ],
+
+  "outbounds": [
+    { "protocol": "freedom", "tag": "direct" }
+  ],
+
+  "routing": {
+    "rules": [
+      { "type": "field", "inboundTag": ["api"], "outboundTag": "api" }
+    ]
+  }
+}

@@ -45,6 +45,41 @@ start_xray() {
   . "$REALITY_ENV_FILE"
   export REALITY_PRIVATE_KEY REALITY_PUBLIC_KEY REALITY_SHORT_ID REALITY_DEST REALITY_SERVER_NAME
 
+  # ── VLESS Post-Quantum Encryption (ML-KEM-768 + X25519) — جدیدترین قابلیت
+  # Xray-core (PR #5067). دقیقاً مثل REALITY، کلیدش باید بین ری‌استارت‌ها ثابت
+  # بمونه وگرنه لینک‌های قبلی می‌میرن. با «xray vlessenc --json» ساخته می‌شه که
+  # هم رشته‌ی server-side («decryption»، محرمانه) و هم رشته‌ی client-side
+  # («encryption»، قابل‌اشتراک با کاربر — شبیه public key در REALITY) می‌ده.
+  PQ_ENV_FILE="${DATA_DIR:-/data}/x5g_vless_pq.env"
+  if [ ! -f "$PQ_ENV_FILE" ]; then
+    echo "[start.sh] کلید VLESS Post-Quantum Encryption پیدا نشد — یک‌بار می‌سازیم..."
+    mkdir -p "$(dirname "$PQ_ENV_FILE")"
+    VLESSENC_JSON="$("$XRAY_BIN" vlessenc --json 2>/dev/null || echo '{}')"
+    PQ_DEC="$(printf '%s' "$VLESSENC_JSON" | python3 -c 'import json,sys
+try:
+    d=json.load(sys.stdin).get("mlkem768",{})
+    print(d.get("decryption",""))
+except Exception:
+    print("")' 2>/dev/null)"
+    PQ_ENC="$(printf '%s' "$VLESSENC_JSON" | python3 -c 'import json,sys
+try:
+    d=json.load(sys.stdin).get("mlkem768",{})
+    print(d.get("encryption",""))
+except Exception:
+    print("")' 2>/dev/null)"
+    if [ -z "$PQ_DEC" ]; then
+      echo "[start.sh] هشدار: «xray vlessenc» خروجی نداد — این باینری از VLESS Post-Quantum Encryption پشتیبانی نمی‌کنه یا دستور تغییر کرده؛ این inbound با decryption=none (غیرفعال) بالا میاد."
+      PQ_DEC="none"; PQ_ENC=""
+    fi
+    {
+      echo "VLESS_PQ_DECRYPTION=$PQ_DEC"
+      echo "VLESS_PQ_ENCRYPTION=$PQ_ENC"
+    } > "$PQ_ENV_FILE"
+  fi
+  # shellcheck disable=SC1090
+  . "$PQ_ENV_FILE"
+  export VLESS_PQ_DECRYPTION VLESS_PQ_ENCRYPTION
+
   echo "[start.sh] در حال ساخت کانفیگ Xray از روی تمپلیت..."
   envsubst < "$XRAY_TEMPLATE" > "$XRAY_CONFIG" 2>/dev/null || cp "$XRAY_TEMPLATE" "$XRAY_CONFIG"
 

@@ -907,6 +907,8 @@ a{color:inherit;text-decoration:none}
       <div class="sr"><span class="sr-k"><i class="ti ti-rss"></i> Subscription API</span><span class="sr-v" style="color:var(--green-t)">● فعال</span></div>
       <div class="sr"><span class="sr-k"><i class="ti ti-cpu"></i> Xray-core Engine</span><span class="sr-v" id="xray-status-badge">● در حال بررسی…</span></div>
       <div class="sr"><span class="sr-k"><i class="ti ti-git-merge"></i> Mux (Multiplexing)</span><span class="sr-v" id="mux-status-badge">● در حال بررسی…</span></div>
+      <div class="sr"><span class="sr-k"><i class="ti ti-eye-off"></i> REALITY (Vision)</span><span class="sr-v" id="reality-status-badge">● در حال بررسی…</span></div>
+      <div class="sr"><span class="sr-k"><i class="ti ti-atom-2"></i> VLESS Post-Quantum</span><span class="sr-v" id="pq-status-badge">● در حال بررسی…</span></div>
       <div class="sr"><span class="sr-k"><i class="ti ti-clock"></i> آپتایم</span><span class="sr-v" id="uptime-inline">—</span></div>
       <div class="sr" style="flex-direction:column;align-items:flex-start;gap:4px">
         <div style="width:100%;display:flex;justify-content:space-between"><span class="sr-k"><i class="ti ti-gauge"></i> بار نسبی</span><span class="sr-v" id="bw-pct">—%</span></div>
@@ -916,6 +918,20 @@ a{color:inherit;text-decoration:none}
     <div class="card">
       <div class="card-title"><i class="ti ti-list"></i> خلاصه کانفیگ‌ها <span class="ml-auto badge bg-blue" id="lsummary-badge">۰</span></div>
       <div id="lsummary">—</div>
+    </div>
+  </div>
+  <div class="g2">
+    <div class="card">
+      <div class="card-title"><i class="ti ti-key"></i> لینک‌های بومی Xray-core (REALITY / Post-Quantum)</div>
+      <p style="font-size:11px;color:var(--t3);margin:0 0 8px">این دو پروتکل روی پورت اختصاصی Xray (نه پشت Worker) هستن — قبلش باید در Railway → Networking یک TCP Proxy برای پورت‌های 12004/12005 بسازی.</p>
+      <select id="xn-uuid" style="width:100%;margin-bottom:6px"></select>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <input id="xn-host" placeholder="هاست عمومی Railway TCP Proxy (اختیاری)" style="flex:2">
+        <input id="xn-rport" placeholder="پورت REALITY" style="flex:1">
+        <input id="xn-pport" placeholder="پورت PQ" style="flex:1">
+      </div>
+      <button class="btn btn-sm" onclick="loadXrayNativeLinks()"><i class="ti ti-link"></i> دریافت لینک</button>
+      <div id="xn-out" style="margin-top:10px;font-size:11px"></div>
     </div>
   </div>
   <div class="dash-footer">
@@ -1617,22 +1633,73 @@ function closeModal(id){document.getElementById(id).classList.remove('open')}
 let prevTraf=0,ch1,ch2,ch3;
 async function loadXrayStatus(){
   const xb=document.getElementById('xray-status-badge'),mb=document.getElementById('mux-status-badge');
+  const rb=document.getElementById('reality-status-badge'),pb=document.getElementById('pq-status-badge');
   try{
     const r=await authF('/api/xray/status');const d=await r.json();
     if(d.state==='connected'){
       xb.innerHTML='<span style="color:var(--green-t)">● متصل و پاسخگو</span>';
       mb.innerHTML='<span style="color:var(--green-t);text-shadow:0 0 8px var(--green)">● فعال</span>';
+      const rConf=d.reality&&d.reality.configured;
+      rb.innerHTML=rConf?'<span style="color:var(--green-t)">● کانفیگ شده · sni='+esc(d.reality.server_name||'')+'</span>':'<span style="color:var(--t3)">○ کانفیگ نشده</span>';
+      const pConf=d.post_quantum&&d.post_quantum.configured;
+      pb.innerHTML=pConf?'<span style="color:var(--green-t)">● کانفیگ شده (ML-KEM-768+X25519)</span>':'<span style="color:var(--t3)" title="نیازمند Xray-core v26+">○ کانفیگ نشده</span>';
     }else if(d.state==='disabled'){
       xb.innerHTML='<span style="color:var(--t3)">○ غیرفعال (XRAY_ENABLED=false)</span>';
       mb.innerHTML='<span style="color:var(--red-t)">● غیرفعال</span>';
+      rb.innerHTML='<span style="color:var(--t3)">○ غیرفعال</span>';
+      pb.innerHTML='<span style="color:var(--t3)">○ غیرفعال</span>';
     }else{
       xb.innerHTML='<span style="color:var(--red-t)" title="'+esc(d.detail||'')+'">● در دسترس نیست</span>';
       mb.innerHTML='<span style="color:var(--red-t)">● غیرفعال</span>';
+      rb.innerHTML='<span style="color:var(--red-t)">● در دسترس نیست</span>';
+      pb.innerHTML='<span style="color:var(--red-t)">● در دسترس نیست</span>';
     }
   }catch(e){
     xb.innerHTML='<span style="color:var(--red-t)">● خطا در بررسی</span>';
     mb.innerHTML='<span style="color:var(--red-t)">● غیرفعال</span>';
+    if(rb)rb.innerHTML='<span style="color:var(--red-t)">● خطا</span>';
+    if(pb)pb.innerHTML='<span style="color:var(--red-t)">● خطا</span>';
   }
+}
+function populateXnUuidSelect(){
+  const sel=document.getElementById('xn-uuid');
+  if(!sel) return;
+  sel.innerHTML=(allLinksList||[]).map(l=>`<option value="${l.uuid}">${esc(l.label)} (${l.uuid.slice(0,8)}…)</option>`).join('') || '<option value="">— هنوز کانفیگی نساختی —</option>';
+}
+async function loadXrayNativeLinks(){
+  const uid=document.getElementById('xn-uuid').value;
+  const out=document.getElementById('xn-out');
+  if(!uid){ toast('اول یک کانفیگ بساز','err'); return; }
+  const host=document.getElementById('xn-host').value.trim();
+  const rport=document.getElementById('xn-rport').value.trim();
+  const pport=document.getElementById('xn-pport').value.trim();
+  const qs=new URLSearchParams();
+  if(host)qs.set('host',host); if(rport)qs.set('reality_port',rport); if(pport)qs.set('pq_port',pport);
+  out.innerHTML='در حال گرفتن لینک…';
+  try{
+    const r=await authF('/api/xray/links/'+uid+'?'+qs.toString());
+    const d=await r.json();
+    if(!d.ok){ out.innerHTML='<span style="color:var(--red-t)">'+esc(d.error||'خطا')+'</span>'; return; }
+    let html='';
+    if(d.warning) html+=`<div style="color:var(--amber);margin-bottom:8px">⚠️ ${esc(d.warning)}</div>`;
+    html += xnLinkBlock('REALITY (Vision)', d.reality);
+    html += xnLinkBlock('VLESS Post-Quantum', d.post_quantum);
+    out.innerHTML=html;
+  }catch(e){ out.innerHTML='<span style="color:var(--red-t)">خطای شبکه</span>'; }
+}
+function xnLinkBlock(title, info){
+  if(!info.available) return `<div style="margin-bottom:8px"><b>${title}:</b> <span style="color:var(--t3)">${esc(info.note||'در دسترس نیست')}</span></div>`;
+  const id='xn-'+title.replace(/[^a-zA-Z]/g,'');
+  return `<div style="margin-bottom:8px"><b>${title}:</b>
+    <div style="display:flex;gap:6px;margin-top:4px">
+      <input id="${id}" readonly value="${esc(info.link)}" style="flex:1;font-family:monospace;font-size:10px">
+      <button class="btn btn-sm" onclick="copyXn('${id}')"><i class="ti ti-copy"></i></button>
+    </div></div>`;
+}
+function copyXn(id){
+  const el=document.getElementById(id);
+  el.select(); document.execCommand('copy');
+  toast('کپی شد','ok');
 }
 async function fetchStats(){
   try{
@@ -1701,6 +1768,7 @@ async function loadLinks(){
     document.getElementById('lsummary').innerHTML=links.length?links.slice(0,6).map(l=>`<div class="sr"><span class="sr-k" style="gap:5px"><i class="ti ${l.expired?'ti-calendar-x':l.active?'ti-circle-check':'ti-circle-x'}" style="color:${l.expired?'var(--amber)':l.active?'var(--green)':'var(--red)'}"></i>${esc(l.label)}</span><span class="sr-v" style="font-size:10px">${fmtB(l.used_bytes)} / ${l.limit_bytes===0?'∞':fmtB(l.limit_bytes)}</span></div>`).join(''):'<div class="empty"><i class="ti ti-link-off"></i><p>کانفیگی وجود ندارد</p></div>';
     renderLinksGrid();
     populateOwnerSelect();
+    populateXnUuidSelect();
   }catch(e){console.error(e)}
 }
 let allUsersList=[];

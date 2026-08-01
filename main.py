@@ -901,6 +901,54 @@ async def api_xray_status(_=Depends(require_auth)):
     except Exception as e:
         return {"enabled": False, "reachable": False, "state": "error", "detail": str(e)[:300]}
 
+# ── Xray-core Native Protocol Links (X5.3) ──────────────────────────────────────
+# این endpoint دقیقاً همون «فاز بعدی» است که در XRAY-SETUP.md یادداشت شده بود:
+# لینک واقعی و قابل‌اتصال برای REALITY و VLESS Post-Quantum Encryption بساز —
+# نه فقط اسمشون تو تنظیمات باشه. چون این دو پروتکل روی پورت‌های اختصاصی Xray
+# (نه پشت Worker) هستن، معمولاً باید Railway Networking → TCP Proxy را برای
+# آن‌ها فعال کنی؛ Railway یک هاست/پورت عمومی *رندوم* می‌دهد (نه لزوماً همون
+# 12004/12005 داخلی) — برای همین host/port را می‌شود override کرد، وگرنه از
+# XRAY_PUBLIC_HOST/XRAY_REALITY_PUBLIC_PORT/XRAY_PQ_PUBLIC_PORT (اگر ست شده)
+# یا در نهایت از دامنه‌ی همین درخواست استفاده می‌کند (که در عمل احتمالاً درست
+# نیست تا وقتی TCP Proxy را دستی تنظیم نکنی — به همین دلیل «warning» برمی‌گردد).
+@app.get("/api/xray/links/{uid}")
+async def api_xray_links(uid: str, request: Request, host: str | None = None,
+                          reality_port: int | None = None, pq_port: int | None = None,
+                          _=Depends(require_auth)):
+    async with LINKS_LOCK:
+        link = LINKS.get(uid)
+    if not link:
+        raise HTTPException(status_code=404, detail="link not found")
+    email = link.get("label", uid)
+    pub_host = (host or os.environ.get("XRAY_PUBLIC_HOST", "").strip() or get_host(request))
+    r_port = reality_port or int(os.environ.get("XRAY_REALITY_PUBLIC_PORT", "0") or 0) or 12004
+    p_port = pq_port or int(os.environ.get("XRAY_PQ_PUBLIC_PORT", "0") or 0) or 12005
+    warning = None
+    if not (host or os.environ.get("XRAY_PUBLIC_HOST", "").strip()):
+        warning = (
+            "هاست به‌صورت خودکار از دامنه‌ی همین درخواست گرفته شد. برای اینکه این لینک‌ها واقعاً "
+            "کار کنند، باید در Railway → Settings → Networking یک TCP Proxy برای پورت‌های "
+            "12004 (REALITY) و 12005 (VLESS-PQ) بسازی و هاست/پورت *عمومی* که Railway می‌دهد را "
+            "با پارامترهای ?host=&reality_port=&pq_port= اینجا بدهی (یا در env با "
+            "XRAY_PUBLIC_HOST/XRAY_REALITY_PUBLIC_PORT/XRAY_PQ_PUBLIC_PORT ثابتش کنی)."
+        )
+    try:
+        from xray_bridge import reality_client_link, pq_client_link, XRAY_ENABLED
+    except Exception as e:
+        return {"ok": False, "error": f"xray_bridge در دسترس نیست: {e}"}
+    if not XRAY_ENABLED:
+        return {"ok": False, "error": "XRAY_ENABLED=true نیست — این لینک‌ها موجود نیستند."}
+    reality_link = reality_client_link(uid, pub_host, r_port, remark=link.get("label", "X5G-Reality"))
+    pq_link = pq_client_link(uid, pub_host, p_port, remark=link.get("label", "X5G-PQ"))
+    return {
+        "ok": True,
+        "warning": warning,
+        "reality": {"available": bool(reality_link), "link": reality_link,
+                     "note": None if reality_link else "REALITY هنوز کانفیگ نشده (کلید تولید نشده)."},
+        "post_quantum": {"available": bool(pq_link), "link": pq_link,
+                          "note": None if pq_link else "VLESS-PQ هنوز کانفیگ نشده — یا Xray-core نسخه‌ی قدیمی است (نیازمند v26+)."},
+    }
+
 # ── User Management (X5.2) ─────────────────────────────────────────────────────
 # کاربر اینجا یعنی «مشتری/کاربر نهایی» که یک یا چند کانفیگ بهش تخصیص داده می‌شه —
 # جدا از ADMIN_PASSWORD که فقط برای ورود خودِ ادمین به این پنله.

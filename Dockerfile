@@ -7,9 +7,7 @@
 FROM python:3.11-slim
 
 # ── نصب Xray-core (باینری رسمی از GitHub Releases) ──────────────────────────
-# نسخه‌ی v26.7.28: شامل «VLESS Post-Quantum Encryption» (ML-KEM-768 + X25519،
-# دستور CLI «xray vlessenc») است — نسخه‌ی قبلی (v25.3.6) این قابلیت را نداشت.
-ARG XRAY_VERSION=v26.7.28
+ARG XRAY_VERSION=v25.3.6
 ARG GRPCURL_VERSION=1.9.1
 RUN apt-get update && apt-get install -y --no-install-recommends curl unzip gettext-base ca-certificates \
     && ARCH=$(dpkg --print-architecture) \

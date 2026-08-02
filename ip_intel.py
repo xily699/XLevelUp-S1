@@ -22,9 +22,58 @@ from fastapi.responses import JSONResponse
 
 router = APIRouter(prefix="/api/v2", tags=["ip-intel"])
 
+# ── رنج‌های رسمی و منتشرشده‌ی کلودفلر (از https://www.cloudflare.com/ips-v4) ──
+# این‌ها عمومی و مستندن، هیچ چیز محرمانه‌ای نیست. هر رنج رو به بلوک‌های /24
+# می‌شکنیم و از هر بلوک یه IP نماینده (میزبان دوم) برای اسکن سریع برمی‌داریم —
+# اسکن تک‌تک ۱۶ میلیون آدرس /13 عملاً غیرممکنه، ولی یه نماینده از هر /24 یه
+# تصویر واقعی و کافی از سلامت اون بلوک می‌ده.
+CLOUDFLARE_V4_RANGES = [
+    "173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22",
+    "141.101.64.0/18", "108.162.192.0/18", "190.93.240.0/20", "188.114.96.0/20",
+    "197.234.240.0/22", "198.41.128.0/17", "162.158.0.0/15", "104.16.0.0/13",
+    "104.24.0.0/14", "172.64.0.0/13", "131.0.72.0/22",
+]
+
+
+def _flatten_representatives() -> list[str]:
+    reps = []
+    for cidr in CLOUDFLARE_V4_RANGES:
+        net = ipaddress.ip_network(cidr, strict=False)
+        if net.prefixlen >= 24:
+            hosts = list(net.hosts())
+            if hosts:
+                reps.append(str(hosts[min(1, len(hosts) - 1)]))
+            continue
+        for sub in net.subnets(new_prefix=24):
+            hosts = list(sub.hosts())
+            if hosts:
+                reps.append(str(hosts[1]))
+    return reps
+
+
+REPRESENTATIVE_IPS = _flatten_representatives()  # ~هزاران /24 از کل رنج کلودفلر
+
 DATA_DIR = Path(__import__("os").environ.get("DATA_DIR", "/data"))
 POOL_FILE = DATA_DIR / "x5g_ip_pool.json"
+CURSOR_FILE = DATA_DIR / "x5g_scan_cursor.json"
 POOL_LOCK = asyncio.Lock()
+
+
+def _load_cursor() -> int:
+    try:
+        if CURSOR_FILE.exists():
+            return int(json.loads(CURSOR_FILE.read_text()).get("cursor", 0))
+    except Exception:
+        pass
+    return 0
+
+
+def _save_cursor(pos: int):
+    try:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        CURSOR_FILE.write_text(json.dumps({"cursor": pos, "updated_at": time.time()}))
+    except Exception:
+        pass
 
 # نگه‌داری در حافظه؛ روی دیسک هم persist می‌شه تا با ری‌استارت از دست نره
 POOL: dict[str, dict] = {}
@@ -181,29 +230,61 @@ async def api_scan(request: Request):
     return JSONResponse({"ok": True, "scanned": len(ips), "results": ranked})
 
 
+@router.post("/scan-auto")
+async def api_scan_auto(request: Request):
+    """هر بار که صدا زده بشه، از جایی که دفعه‌ی قبل ول کرده بود ادامه می‌ده —
+    یعنی هربار رنج‌های تازه‌ی کلودفلر رو پوشش می‌ده، نه همیشه یه بلوک تکراری.
+    body: {batch: 40} — وقتی به ته لیست رسید، از اول شروع می‌کنه (چرخشی)."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    batch = max(10, min(int(body.get("batch") or 40), 100))
+    total = len(REPRESENTATIVE_IPS)
+    async with POOL_LOCK:
+        cursor = _load_cursor() % total
+        chunk = (REPRESENTATIVE_IPS + REPRESENTATIVE_IPS)[cursor:cursor + batch]
+        new_cursor = (cursor + batch) % total
+        _save_cursor(new_cursor)
+
+    sem = asyncio.Semaphore(24)
+
+    async def _run(ip):
+        async with sem:
+            return await score_ip(ip, 443, 4)
+
+    results = await asyncio.gather(*[_run(ip) for ip in chunk])
+    async with POOL_LOCK:
+        for r in results:
+            _merge_into_pool(r, 443)
+        _trim_pool()
+        _save_pool()
+    ranked = sorted(results, key=lambda r: r["score"], reverse=True)
+    return JSONResponse({
+        "ok": True, "scanned": len(chunk), "results": ranked,
+        "cursor": new_cursor, "total_blocks": total,
+        "progress_pct": round(new_cursor / total * 100, 1),
+    })
+
+
 @router.get("/pool")
 async def api_pool(limit: int = 20):
     ranked = sorted(POOL.values(), key=lambda r: r["score"], reverse=True)[:max(1, min(limit, MAX_POOL_SIZE))]
     return JSONResponse({"ok": True, "count": len(ranked), "pool": ranked})
 
 
+@router.get("/subscription/{uuid}.json")
 @router.get("/subscription/{uuid}")
-async def api_subscription(uuid: str, host: str = "", path: str = "", top: int = 6,
-                            interval: str = "5s", tolerance: int = 30):
-    """X5.3: خروجی حالا یک کانفیگ *کامل و مستقل* sing-box است — مستقیماً به‌عنوان
-    Subscription URL در sing-box for Android/iOS/desktop قابل import است، بدون
-    نیاز به merge دستی (مشکل قبلی: فیلد اضافه‌ی «_note» باعث رد شدن کل کانفیگ
-    توسط دیکودر سخت‌گیر sing-box می‌شد — اینجا دیگه هیچ فیلد ناشناخته‌ای نیست).
+async def api_subscription(uuid: str, host: str = "", path: str = "", top: int = 6):
+    """یه کانفیگ کامل و مستقل sing-box برمی‌گردونه — نه یه تکه‌ی جزئی که نیاز به
+    ادغام دستی داشته باشه. این یعنی همین URL رو مستقیم تو sing-box/SFA/SFI/Karing
+    به‌عنوان «Import via URL» بدی، کار می‌کنه، چیزی برای merge کردن نیست.
 
-    برای «صفر تا کمترین تأخیر ممکن هنگام قطع اتصال»:
-      • interrupt_exist_connections=true → به‌محض اینکه urltest بفهمه یک IP بهتره
-        (یا IP فعلی قطع شده)، همون لحظه سشن‌های باز رو هم به IP جدید منتقل
-        می‌کنه — منتظر بسته‌شدن طبیعی سشن نمی‌مونه.
-      • interval پیش‌فرض 5s (نه 10s قبلی) — می‌تونی با ?interval=3s حتی
-        تهاجمی‌ترش کنی، هرچی کمتر باشه تعداد تست بیشتر و خرج سرور/باتری بیشتره.
-      • tolerance پایین (30ms پیش‌فرض) یعنی sing-box با اختلاف کوچیک هم سوییچ
-        می‌کنه، نه فقط وقتی IP فعلی کاملاً بمیره.
-    """
+    برای «صبر نکردن» که خواستی: interval رو ۵ ثانیه گذاشتم (سریع‌ترین بازه‌ی
+    معقول قبل از این‌که خودِ تست شبکه مصرف بی‌مورد بزنه) و
+    interrupt_exist_connections=true گذاشتم — یعنی اگه در حین یه اتصال زنده،
+    IP فعلی از رتبه افتاد، sing-box همون اتصال رو قطع و فوراً به بهترین IP بعدی
+    وصل می‌شه، به‌جای این‌که صبر کنه اتصال فعلی خودش بمیره."""
     if not host:
         raise HTTPException(400, "پارامتر host (دامنه‌ی Worker) لازم است")
     ranked = sorted(POOL.values(), key=lambda r: r["score"], reverse=True)[:max(1, min(top, 12))]
@@ -224,39 +305,24 @@ async def api_subscription(uuid: str, host: str = "", path: str = "", top: int =
     outbounds.append({
         "type": "urltest", "tag": "x5g-auto", "outbounds": tags,
         "url": "https://cp.cloudflare.com/generate_204",
-        "interval": interval, "tolerance": max(0, min(tolerance, 300)),
-        "idle_timeout": "30s", "interrupt_exist_connections": True,
+        "interval": "5s", "tolerance": 30, "idle_timeout": "3m",
+        "interrupt_exist_connections": True,
     })
     outbounds.append({"type": "direct", "tag": "direct"})
-
-    return JSONResponse({
+    config = {
         "log": {"level": "warn", "timestamp": True},
         "dns": {
-            "servers": [
-                {"type": "https", "tag": "cf-doh", "server": "1.1.1.1", "detour": "x5g-auto"},
-                {"type": "local", "tag": "local"},
-            ],
-            "rules": [{"outbound": "any", "server": "local"}],
-            "final": "cf-doh",
-            "independent_cache": True,
+            "servers": [{"tag": "dns-remote", "address": "https://1.1.1.1/dns-query"}],
+            "final": "dns-remote",
         },
-        "inbounds": [
-            {
-                "type": "tun", "tag": "tun-in",
-                "interface_name": "x5g-tun", "address": ["172.19.0.1/28"],
-                "auto_route": True, "strict_route": True, "stack": "system",
-                "sniff": True,
-            }
-        ],
         "outbounds": outbounds,
         "route": {
-            "rules": [
-                {"action": "sniff"},
-                {"protocol": "dns", "action": "hijack-dns"},
-                {"ip_is_private": True, "outbound": "direct"},
-            ],
-            "default_domain_resolver": "local",
+            "rules": [{"protocol": "dns", "outbound": "dns-remote"}],
             "final": "x5g-auto",
             "auto_detect_interface": True,
         },
+    }
+    return JSONResponse(config, headers={
+        "Content-Disposition": 'inline; filename="x5g-subscription.json"',
+        "Profile-Update-Interval": "6",
     })

@@ -208,16 +208,6 @@ a{color:inherit;text-decoration:none}
 .sidebar.open .nav-it:nth-child(6){transition-delay:.19s}
 .sidebar.open .nav-it:nth-child(7){transition-delay:.22s}
 .sidebar.open .nav-acc{transition-delay:.25s}
-/* X5.3 FIX — باگ اصلیِ «منو نیمه‌باز با گزینه‌های محو»:
-   نوار کناری روی صفحه‌های عریض (دسکتاپ، یا وب‌ویوهایی که width واقعی گوشی رو
-   درست گزارش نمی‌دن و بیشتر از ۱۰۵۰px حساب می‌کنن) همیشه ثابت و نمایان می‌مونه
-   (position:fixed) — ولی چون opacity:0 بالا فقط با کلاس .open خنثی می‌شه و اون
-   کلاس هیچ‌وقت خودکار ست نمی‌شه، آیتم‌های منو برای همیشه محو می‌موندن. این
-   قانون قویاً مجبورشون می‌کنه هرجا نوار کناری «کشویی موبایل» نیست، همیشه دیده
-   بشن — صرف‌نظر از اینکه .open ست شده یا نه: */
-@media(min-width:1051px){
-  .sidebar .nav-it,.sidebar .nav-acc,.sidebar .nav-sec{opacity:1!important;transform:none!important}
-}
 @media(min-width:769px){
   .sidebar .nav-it,.sidebar .nav-acc,.sidebar .nav-sec{opacity:1;transform:none}
 }
@@ -236,8 +226,8 @@ a{color:inherit;text-decoration:none}
 .mob-right{display:flex;gap:6px}
 .menu-btn,.theme-mob{background:var(--accent-d);border:1px solid var(--card-b);color:var(--t2);width:34px;height:34px;border-radius:8px;font-size:17px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.15s}
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);z-index:190;
-  opacity:0;visibility:hidden;pointer-events:none;transition:opacity .28s ease,visibility 0s linear .28s,backdrop-filter .28s ease}
-.overlay.show{opacity:1;visibility:visible;pointer-events:auto;transition:opacity .28s ease,visibility 0s linear 0s,backdrop-filter .28s ease}
+  opacity:0;visibility:hidden;transition:opacity .28s ease,visibility 0s linear .28s,backdrop-filter .28s ease}
+.overlay.show{opacity:1;visibility:visible;transition:opacity .28s ease,visibility 0s linear 0s,backdrop-filter .28s ease}
 .main{margin-right:var(--sidebar-w);flex:1;padding:28px 28px 60px;min-width:0;transition:margin .25s}
 .pg{display:none}
 .pg.on{display:block;animation:fi .2s ease}
@@ -864,6 +854,7 @@ a{color:inherit;text-decoration:none}
     <div class="nav-it" id="edge-worker-nav" onclick="openWorkerDashboard()"><i class="ti ti-cloud-bolt"></i> داشبورد Edge Worker <span class="nav-badge nav-badge-indep" id="worker-nb">مستقل</span></div>
     <div class="nav-it" data-pg="v2"><i class="ti ti-satellite"></i> V2 · سابسکریپشن هوشمند <span class="nav-badge" id="pool-nb">0</span></div>
     <div class="nav-it" data-pg="scanner"><i class="ti ti-radar-2"></i> Scanner · تشخیص همسایه</div>
+    <div class="nav-it" data-pg="setupstatus"><i class="ti ti-checklist"></i> وضعیت راه‌اندازی <span class="nav-badge" id="setup-nb">-/-</span></div>
     <div class="nav-acc" id="acc-system">
       <div class="nav-acc-head" onclick="toggleNavAcc('system')">
         <i class="ti ti-adjustments-cog"></i>
@@ -917,8 +908,6 @@ a{color:inherit;text-decoration:none}
       <div class="sr"><span class="sr-k"><i class="ti ti-rss"></i> Subscription API</span><span class="sr-v" style="color:var(--green-t)">● فعال</span></div>
       <div class="sr"><span class="sr-k"><i class="ti ti-cpu"></i> Xray-core Engine</span><span class="sr-v" id="xray-status-badge">● در حال بررسی…</span></div>
       <div class="sr"><span class="sr-k"><i class="ti ti-git-merge"></i> Mux (Multiplexing)</span><span class="sr-v" id="mux-status-badge">● در حال بررسی…</span></div>
-      <div class="sr"><span class="sr-k"><i class="ti ti-eye-off"></i> REALITY (Vision)</span><span class="sr-v" id="reality-status-badge">● در حال بررسی…</span></div>
-      <div class="sr"><span class="sr-k"><i class="ti ti-atom-2"></i> VLESS Post-Quantum</span><span class="sr-v" id="pq-status-badge">● در حال بررسی…</span></div>
       <div class="sr"><span class="sr-k"><i class="ti ti-clock"></i> آپتایم</span><span class="sr-v" id="uptime-inline">—</span></div>
       <div class="sr" style="flex-direction:column;align-items:flex-start;gap:4px">
         <div style="width:100%;display:flex;justify-content:space-between"><span class="sr-k"><i class="ti ti-gauge"></i> بار نسبی</span><span class="sr-v" id="bw-pct">—%</span></div>
@@ -928,20 +917,6 @@ a{color:inherit;text-decoration:none}
     <div class="card">
       <div class="card-title"><i class="ti ti-list"></i> خلاصه کانفیگ‌ها <span class="ml-auto badge bg-blue" id="lsummary-badge">۰</span></div>
       <div id="lsummary">—</div>
-    </div>
-  </div>
-  <div class="g2">
-    <div class="card">
-      <div class="card-title"><i class="ti ti-key"></i> لینک‌های بومی Xray-core (REALITY / Post-Quantum)</div>
-      <p style="font-size:11px;color:var(--t3);margin:0 0 8px">این دو پروتکل روی پورت اختصاصی Xray (نه پشت Worker) هستن — قبلش باید در Railway → Networking یک TCP Proxy برای پورت‌های 12004/12005 بسازی.</p>
-      <select id="xn-uuid" style="width:100%;margin-bottom:6px"></select>
-      <div style="display:flex;gap:6px;margin-bottom:8px">
-        <input id="xn-host" placeholder="هاست عمومی Railway TCP Proxy (اختیاری)" style="flex:2">
-        <input id="xn-rport" placeholder="پورت REALITY" style="flex:1">
-        <input id="xn-pport" placeholder="پورت PQ" style="flex:1">
-      </div>
-      <button class="btn btn-sm" onclick="loadXrayNativeLinks()"><i class="ti ti-link"></i> دریافت لینک</button>
-      <div id="xn-out" style="margin-top:10px;font-size:11px"></div>
     </div>
   </div>
   <div class="dash-footer">
@@ -1001,49 +976,24 @@ a{color:inherit;text-decoration:none}
         </div>
       </div>
       <div class="cp-block mb16">
-        <div class="cp-block-label"><i class="ti ti-plug-connected"></i> پروتکل انتقال <span style="font-size:9px;color:var(--t3);font-weight:400">— هر روشی که پروژه واقعاً پشتیبانی می‌کنه</span></div>
+        <div class="cp-block-label"><i class="ti ti-plug-connected"></i> پروتکل انتقال</div>
         <select id="nl-proto" style="display:none">
           <option value="vless-ws">VLESS / WebSocket</option>
           <option value="xhttp">XHTTP Ultra · mode: auto</option>
-          <option value="grpc">VLESS / gRPC (Xray Native)</option>
-          <option value="reality">VLESS / REALITY + Vision (Xray Native)</option>
-          <option value="pq">VLESS Post-Quantum (Xray Native)</option>
         </select>
         <div class="proto-cards" style="grid-template-columns:repeat(2,1fr)">
-          <div class="proto-card active" data-val="vless-ws" data-native="0" onclick="selectProto('vless-ws',this)">
+          <div class="proto-card active" data-val="vless-ws" onclick="selectProto('vless-ws',this)">
             <div class="proto-card-check"><i class="ti ti-check"></i></div>
             <div class="proto-card-icon"><i class="ti ti-link"></i></div>
             <div class="proto-card-title">VLESS / WS</div>
-            <div class="proto-card-desc">پایدار و همه‌منظوره · از طریق Worker</div>
+            <div class="proto-card-desc">پایدار و همه‌منظوره</div>
           </div>
-          <div class="proto-card" data-val="xhttp" data-native="0" onclick="selectProto('xhttp',this)">
+          <div class="proto-card" data-val="xhttp" onclick="selectProto('xhttp',this)">
             <div class="proto-card-check"><i class="ti ti-check"></i></div>
             <div class="proto-card-icon"><i class="ti ti-bolt"></i></div>
             <div class="proto-card-title">XHTTP · mode: auto</div>
-            <div class="proto-card-desc">کمترین تأخیر · از طریق Worker</div>
+            <div class="proto-card-desc">انتخاب خودکار packet-up/stream-up</div>
           </div>
-          <div class="proto-card" data-val="grpc" data-native="1" onclick="selectProto('grpc',this)">
-            <div class="proto-card-check"><i class="ti ti-check"></i></div>
-            <div class="proto-card-icon"><i class="ti ti-affiliate"></i></div>
-            <div class="proto-card-title">VLESS / gRPC</div>
-            <div class="proto-card-desc">Xray Native · نشست طولانی/چندگانه پایدار</div>
-          </div>
-          <div class="proto-card" data-val="reality" data-native="1" onclick="selectProto('reality',this)">
-            <div class="proto-card-check"><i class="ti ti-check"></i></div>
-            <div class="proto-card-icon"><i class="ti ti-eye-off"></i></div>
-            <div class="proto-card-title">REALITY + Vision</div>
-            <div class="proto-card-desc">Xray Native · بیشترین مخفی‌کاری</div>
-          </div>
-          <div class="proto-card" data-val="pq" data-native="1" onclick="selectProto('pq',this)">
-            <div class="proto-card-check"><i class="ti ti-check"></i></div>
-            <div class="proto-card-icon"><i class="ti ti-atom-2"></i></div>
-            <div class="proto-card-title">Post-Quantum</div>
-            <div class="proto-card-desc">Xray Native · رمزنگاری ضدکوانتومی (تازه)</div>
-          </div>
-        </div>
-        <div id="proto-native-note" style="display:none;margin-top:9px;padding:9px 10px;border-radius:10px;background:rgba(255,184,77,.08);border:1px solid rgba(255,184,77,.25);font-size:10.5px;line-height:1.8;color:var(--t2)">
-          این پروتکل مستقیم از Xray-core سرو می‌شه (نه از پشت Worker) — روی یه پورت اختصاصی که باید براش Railway TCP Proxy فعال باشه.
-          کانفیگ رو همینجا با «ساخت کانفیگ» می‌سازی، ولی لینک نهایی رو باید از تب <b>داشبورد → «لینک‌های بومی Xray-core»</b> بگیری، نه از پایین همین فرم.
         </div>
       </div>
       <div class="cp-row">
@@ -1293,7 +1243,7 @@ a{color:inherit;text-decoration:none}
       <input id="v2-top" type="number" value="6" min="2" max="12" placeholder="تعداد IP" style="background:rgba(0,0,0,.25);border:1px solid var(--card-b);color:var(--t1);padding:9px;border-radius:8px;font-size:12px">
     </div>
     <button class="btn btn-p btn-sm" onclick="v2BuildSub()" style="width:100%"><i class="ti ti-cloud-download"></i> ساخت Subscription</button>
-    <div id="v2-sub-out" style="display:none;margin-top:10px"></div>
+    <textarea id="v2-sub-out" readonly style="display:none;width:100%;margin-top:10px;min-height:140px;background:#05090f;border:1px solid var(--card-b);color:var(--accent2);font-family:monospace;font-size:11px;border-radius:8px;padding:10px;direction:ltr"></textarea>
   </div>
   <div class="card">
     <div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:10px"><i class="ti ti-list-check"></i> Pool فعلی</div>
@@ -1306,28 +1256,82 @@ a{color:inherit;text-decoration:none}
 
 <section class="pg" id="pg-scanner">
   <div class="topbar">
-    <div><div class="tb-title"><i class="ti ti-radar-2"></i> Scanner — تشخیص همسایه</div><div class="tb-sub">از یک IP سالم، همسایه‌های همون /24 رو خودکار پیدا و امتیازدهی می‌کنه</div></div>
+    <div><div class="tb-title"><i class="ti ti-radar-2"></i> IP Scanner — چندمرحله‌ای</div><div class="tb-sub">هر بار رنج‌های تازه‌ی کلودفلر رو می‌پیماید، یا دستی رو یه IP خاص و همسایه‌هاش عمیق می‌شه</div></div>
   </div>
-  <div class="card" style="margin-bottom:14px">
-    <div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:10px"><i class="ti ti-target-arrow"></i> اسکن</div>
-    <label style="font-size:10.5px;color:var(--t3);display:block;margin-bottom:6px">IP اولیه (Seed)</label>
-    <input id="sc-seed" placeholder="مثلاً 104.16.132.5" style="width:100%;background:rgba(0,0,0,.25);border:1px solid var(--card-b);color:var(--t1);padding:10px;border-radius:8px;font-size:12px;direction:ltr;margin-bottom:10px">
-    <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t2);margin-bottom:12px;cursor:pointer">
-      <input type="checkbox" id="sc-neighbors" checked style="width:auto"> کل همسایه‌های /24 (تا ۲۵۴ آدرس) هم تست بشن
+
+  <div class="sc-mode-switch">
+    <button class="sc-mode-btn active" data-mode="auto" onclick="scSetMode('auto',this)"><i class="ti ti-refresh-dot"></i> خودکار — رنج‌های تازه</button>
+    <button class="sc-mode-btn" data-mode="manual" onclick="scSetMode('manual',this)"><i class="ti ti-target-arrow"></i> دستی — IP + همسایه‌ها</button>
+  </div>
+
+  <div class="sc-panel" id="sc-panel-auto">
+    <div class="sc-panel-row">
+      <div>
+        <div class="sc-panel-title">پیمایش خودکار کل رنج کلودفلر</div>
+        <div class="sc-panel-sub">هر اجرا از همون‌جایی که دفعه‌ی قبل ول کرده ادامه می‌ده — یعنی رنج تکراری اسکن نمی‌شه</div>
+      </div>
+      <div class="sc-progress-ring" id="sc-ring">0%</div>
+    </div>
+    <div class="sc-bar-track"><div class="sc-bar-fill" id="sc-bar" style="width:0%"></div></div>
+    <div class="sc-rounds-row">
+      <label class="sc-mini-label">تعداد دور (هر دور ۴۰ IP)</label>
+      <input id="sc-rounds" type="number" value="4" min="1" max="12">
+    </div>
+    <button class="btn btn-p btn-sm sc-scan-btn" onclick="scRunAuto()" id="sc-auto-btn"><i class="ti ti-scan"></i> شروع پیمایش خودکار</button>
+  </div>
+
+  <div class="sc-panel" id="sc-panel-manual" style="display:none">
+    <label class="sc-mini-label">IP اولیه (Seed)</label>
+    <input id="sc-seed" placeholder="مثلاً 104.16.132.5" class="sc-input">
+    <label class="sc-check-row">
+      <input type="checkbox" id="sc-neighbors" checked> کل همسایه‌های /24 (تا ۲۵۴ آدرس) هم تست بشن
     </label>
-    <button class="btn btn-p btn-sm" onclick="scRun()" id="sc-btn" style="width:100%"><i class="ti ti-scan"></i> شروع اسکن</button>
-    <p style="font-size:11px;color:var(--t3);margin-top:10px;line-height:1.8">
-      چون رنج‌های کلودفلر پیوسته‌ان، اگه یه IP سالم پیدا کردی، همسایه‌هاش تو همون /24 شانس بالایی برای سالم‌بودن دارن. نتیجه‌ی این اسکن خودکار می‌ره تو Pool تب V2.
-    </p>
+    <button class="btn btn-p btn-sm sc-scan-btn" onclick="scRunManual()" id="sc-btn"><i class="ti ti-scan"></i> شروع اسکن</button>
   </div>
-  <div class="card">
-    <div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:10px"><i class="ti ti-list-check"></i> نتایج این اسکن</div>
-    <div id="sc-progress" style="font-size:11.5px;color:var(--t3);margin-bottom:8px"></div>
+
+  <div class="sc-live-console" id="sc-console">
+    <div class="sc-live-dot"></div><span id="sc-live-text">آماده — یکی از دو حالت بالا رو بزن</span>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:10px"><i class="ti ti-list-check"></i> نتایج زنده</div>
     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11.5px;direction:ltr">
       <thead><tr style="color:var(--t3);text-align:left"><th style="padding:6px">IP</th><th>وضعیت</th><th>Score</th><th>Avg ms</th><th>Jitter</th></tr></thead>
       <tbody id="sc-body"></tbody>
     </table></div>
   </div>
+</section>
+
+<style>
+.sc-mode-switch{display:flex;gap:8px;margin-bottom:14px}
+.sc-mode-btn{flex:1;background:rgba(255,255,255,.03);border:1.5px solid var(--card-b);color:var(--t2);padding:11px 8px;border-radius:12px;font-size:11.5px;font-weight:700;cursor:pointer;transition:.2s;backdrop-filter:blur(8px)}
+.sc-mode-btn.active{background:linear-gradient(135deg,var(--accent-d),rgba(139,92,246,.12));border-color:var(--accent);color:var(--t1);box-shadow:0 0 16px rgba(59,130,246,.25)}
+.sc-panel{background:rgba(255,255,255,.03);border:1px solid var(--card-b);border-radius:14px;padding:16px;backdrop-filter:blur(10px)}
+.sc-panel-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.sc-panel-title{font-size:12.5px;font-weight:700;color:var(--t1)}
+.sc-panel-sub{font-size:10.5px;color:var(--t3);margin-top:3px;max-width:220px;line-height:1.6}
+.sc-progress-ring{width:46px;height:46px;border-radius:50%;border:3px solid var(--card-b);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:var(--accent2);flex-shrink:0;transition:.3s}
+.sc-bar-track{height:7px;border-radius:20px;background:rgba(255,255,255,.06);overflow:hidden;margin-bottom:12px}
+.sc-bar-fill{height:100%;border-radius:20px;background:linear-gradient(90deg,#3B82F6,#8B5CF6);transition:width .4s ease;box-shadow:0 0 10px rgba(139,92,246,.5)}
+.sc-rounds-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.sc-mini-label{font-size:10.5px;color:var(--t3)}
+#sc-rounds{width:70px;background:rgba(0,0,0,.3);border:1px solid var(--card-b);color:var(--t1);padding:6px;border-radius:7px;font-size:12px;text-align:center}
+.sc-input{width:100%;background:rgba(0,0,0,.25);border:1px solid var(--card-b);color:var(--t1);padding:10px;border-radius:8px;font-size:12px;direction:ltr;margin-bottom:10px}
+.sc-check-row{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t2);margin-bottom:12px;cursor:pointer}
+.sc-scan-btn{width:100%}
+.sc-live-console{margin-top:12px;background:#050a12;border:1px solid var(--card-b);border-radius:10px;padding:10px 12px;font-family:monospace;font-size:11px;color:#7BAED4;display:flex;align-items:center;gap:8px;direction:ltr;text-align:left;min-height:20px}
+.sc-live-dot{width:8px;height:8px;border-radius:50%;background:#3D6B8E;flex-shrink:0}
+.sc-live-console.scanning .sc-live-dot{background:#3B82F6;animation:scPulse 1s ease-in-out infinite}
+@keyframes scPulse{0%,100%{box-shadow:0 0 0 0 rgba(59,130,246,.6)}50%{box-shadow:0 0 0 6px rgba(59,130,246,0)}}
+.sc-row-new{animation:scRowIn .35s ease}
+@keyframes scRowIn{from{opacity:0;transform:translateX(6px)}to{opacity:1;transform:translateX(0)}}
+</style>
+<section class="pg" id="pg-setupstatus">
+  <div class="topbar">
+    <div><div class="tb-title"><i class="ti ti-checklist"></i> وضعیت راه‌اندازی</div><div class="tb-sub">همه‌ی چیزهایی که باید دستی تنظیم بشن، یه‌جا — فقط قرمزها رو درست کن</div></div>
+    <div class="tb-right"><button class="btn btn-o btn-sm" onclick="loadSetupStatus()"><i class="ti ti-refresh"></i> رفرش</button></div>
+  </div>
+  <div class="card" id="setup-list"><p style="color:var(--t3);font-size:12px">در حال بررسی...</p></div>
 </section>
 <section class="pg" id="pg-users">
   <div class="topbar">
@@ -1530,7 +1534,7 @@ function protoBadge(p){
   const v=m[p]||m['vless-ws'];
   return `<span class="proto-chip ${v[1]}">${v[0]}</span>`;
 }
-async function checkAuth(){try{const r=await fetch('/api/me');const d=await r.json();if(!d.authenticated){location.href='/login';return false;}return true;}catch(e){location.href='/login';return false;}}
+async function checkAuth(){try{const r=await fetch('/api/me');const d=await r.json();if(!d.authenticated)location.href='/login';}catch(e){location.href='/login'}}
 async function logout(){try{await fetch('/api/logout',{method:'POST'})}catch(e){}location.href='/login'}
 document.getElementById('logout-btn').addEventListener('click',logout);
 async function authF(url,opts={}){
@@ -1553,8 +1557,6 @@ function selectProto(val,el){
   document.getElementById('nl-proto').value = val;
   document.querySelectorAll('.proto-card').forEach(c=>c.classList.remove('active'));
   el.classList.add('active');
-  const note=document.getElementById('proto-native-note');
-  if(note) note.style.display = (el.dataset.native==='1') ? 'block' : 'none';
 }
 function setIpLimit(n,el){
   document.getElementById('nl-iplimit').value = n;
@@ -1583,7 +1585,7 @@ const SYSTEM_PAGES=new Set(['security','logs','errors','testws','settings','supp
 function navTo(name){
   document.querySelectorAll('.nav-it').forEach(n=>n.classList.toggle('on',n.dataset.pg===name));
   document.querySelectorAll('.pg').forEach(p=>p.classList.toggle('on',p.id==='pg-'+name));
-  const loaders={links:loadLinks,connections:loadConns,errors:loadErrs,logs:loadActivity,cfgdash:loadCfgDash,users:loadUsers,v2:v2LoadPool};
+  const loaders={links:loadLinks,connections:loadConns,errors:loadErrs,logs:loadActivity,cfgdash:loadCfgDash,users:loadUsers,v2:v2LoadPool,setupstatus:loadSetupStatus};
   if(loaders[name])loaders[name]();
   if(SYSTEM_PAGES.has(name))openNavAcc('system');
   closeSb();window.scrollTo({top:0,behavior:'smooth'});
@@ -1636,28 +1638,10 @@ async function v2BuildSub(){
   try{
     const me=await (await fetch('/api/me')).json();
     const host=me.worker_domain||location.hostname;
-    const subUrl=`${location.origin}/api/v2/subscription/${uuid}?host=${encodeURIComponent(host)}&top=${top}`;
-    // یه بار هم fetch می‌کنیم فقط برای اطمینان از سالم‌بودن (۴۰۴ یعنی Pool خالیه)
-    const r=await fetch(subUrl);
-    if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||'خطا — اول از تب Scanner یه اسکن بزن تا Pool پر بشه');}
+    const r=await fetch(`/api/v2/subscription/${uuid}?host=${encodeURIComponent(host)}&top=${top}`);
+    if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||'خطا');}
     const d=await r.json();
-    const importUrl='sing-box://import-remote-profile?url='+encodeURIComponent(subUrl)+'#'+encodeURIComponent('XLevelUp-'+uuid.slice(0,8));
-    out.style.display='block';
-    out.innerHTML=`
-      <div style="margin-bottom:10px">
-        <div style="font-size:11px;color:var(--t3);margin-bottom:5px">لینک Subscription (کپی و به‌عنوان Remote Profile به sing-box بده):</div>
-        <div style="display:flex;gap:6px">
-          <input readonly id="v2-sub-url" value="${subUrl}" style="flex:1;background:#05090f;border:1px solid var(--card-b);color:var(--accent2);font-family:monospace;font-size:10.5px;border-radius:8px;padding:9px;direction:ltr">
-          <button class="btn btn-o btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('v2-sub-url').value);toast('کپی شد','ok')"><i class="ti ti-copy"></i></button>
-        </div>
-      </div>
-      <a class="btn btn-p btn-sm" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px;text-decoration:none" href="${importUrl}">
-        <i class="ti ti-bolt"></i> Import مستقیم به sing-box (یک کلیک)
-      </a>
-      <p style="font-size:10.5px;color:var(--t3);margin:8px 0 0;line-height:1.7">این دکمه فقط وقتی جواب می‌ده که همین صفحه رو با مرورگری باز کرده باشی که sing-box (یا هر اپی که این URL Scheme رو ساپورت کنه) روش نصبه — روی گوشی، اپ sing-box for Android/iOS باید نصب باشه تا لینک باز بشه.</p>
-      <details style="margin-top:10px"><summary style="font-size:11px;color:var(--t3);cursor:pointer">نمایش JSON خام (برای merge دستی)</summary>
-        <textarea readonly style="width:100%;margin-top:8px;min-height:140px;background:#05090f;border:1px solid var(--card-b);color:var(--accent2);font-family:monospace;font-size:10.5px;border-radius:8px;padding:10px;direction:ltr">${esc(JSON.stringify(d,null,2))}</textarea>
-      </details>`;
+    out.style.display='block'; out.value=JSON.stringify(d,null,2);
   }catch(e){toast(e.message||'خطا در ساخت subscription','err')}
 }
 async function scRun(){
@@ -1683,79 +1667,108 @@ async function scRun(){
   btn.disabled=false; btn.innerHTML='<i class="ti ti-scan"></i> شروع اسکن';
 }
 
+// ── X5.3: Scanner tab — دو حالت (Auto rotating / Manual seed) با کنسول زنده ──
+function scSetMode(mode, btn){
+  document.querySelectorAll('.sc-mode-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('sc-panel-auto').style.display = mode==='auto'?'block':'none';
+  document.getElementById('sc-panel-manual').style.display = mode==='manual'?'block':'none';
+}
+function scLive(text, scanning){
+  const c=document.getElementById('sc-console'), t=document.getElementById('sc-live-text');
+  t.textContent = text; c.classList.toggle('scanning', !!scanning);
+}
+function scRenderRows(rows, append){
+  const body=document.getElementById('sc-body');
+  const html = rows.map(x=>{
+    const c=x.ok?(x.score>70?'#22c55e':x.score>40?'#f59e0b':'#ef4444'):'#ef4444';
+    return `<tr class="sc-row-new" style="border-top:1px solid var(--card-b)"><td style="padding:6px">${x.ip}</td>
+      <td><span style="color:${c}">${x.ok?'سالم':'قطع'}</span></td>
+      <td style="color:${c};font-weight:700">${x.score||0}</td><td>${x.avg_ms??'-'}</td><td>${x.jitter_ms??'-'}</td></tr>`;
+  }).join('');
+  body.innerHTML = append ? (html + body.innerHTML) : html;
+}
+async function scRunAuto(){
+  const btn=document.getElementById('sc-auto-btn');
+  const rounds=Math.max(1, Math.min(parseInt(document.getElementById('sc-rounds').value)||4, 12));
+  btn.disabled=true; btn.innerHTML='<i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i> در حال پیمایش...';
+  document.getElementById('sc-body').innerHTML='';
+  let totalScanned=0;
+  for(let i=1;i<=rounds;i++){
+    scLive(`دور ${i}/${rounds} — در حال تست یه بلوک تازه از رنج کلودفلر...`, true);
+    try{
+      const r=await fetch('/api/v2/scan-auto',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({batch:40})});
+      const d=await r.json();
+      if(!r.ok) throw new Error(d.detail||'خطا در اسکن');
+      totalScanned += d.scanned;
+      scRenderRows(d.results, true);
+      document.getElementById('sc-bar').style.width = d.progress_pct+'%';
+      document.getElementById('sc-ring').textContent = d.progress_pct+'%';
+      scLive(`دور ${i}/${rounds} تموم شد — ${totalScanned} IP تا الان، ${d.progress_pct}% از کل رنج پیموده شده`, i<rounds);
+      v2LoadPool();
+    }catch(e){ scLive('خطا: '+e.message, false); break; }
+  }
+  if(document.getElementById('sc-console').classList.contains('scanning')===false || true){
+    scLive(`تموم شد — ${totalScanned} IP تست شد، نتایج تو Pool ذخیره شدن`, false);
+  }
+  btn.disabled=false; btn.innerHTML='<i class="ti ti-scan"></i> شروع پیمایش خودکار';
+}
+async function scRunManual(){
+  const seed=document.getElementById('sc-seed').value.trim();
+  const neighbors=document.getElementById('sc-neighbors').checked;
+  const btn=document.getElementById('sc-btn');
+  if(!seed){toast('یه IP اولیه بده','err');return;}
+  btn.disabled=true; btn.innerHTML='<i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i> در حال اسکن...';
+  scLive(neighbors? 'در حال تست کل /24 اطراف '+seed+' (ممکنه چند ثانیه طول بکشه)...' : 'در حال تست '+seed+'...', true);
+  document.getElementById('sc-body').innerHTML='';
+  try{
+    const r=await fetch('/api/v2/scan',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({seed,neighbors})});
+    const d=await r.json();
+    if(!r.ok) throw new Error(d.detail||'خطا در اسکن');
+    scRenderRows(d.results, false);
+    scLive(`${d.scanned} آدرس تست شد — نتایج تو Pool تب V2 ذخیره شد`, false);
+    v2LoadPool();
+  }catch(e){ scLive('خطا: '+e.message, false); toast(e.message||'خطا در اسکن','err'); }
+  btn.disabled=false; btn.innerHTML='<i class="ti ti-scan"></i> شروع اسکن';
+}
+
 function openModal(id){document.getElementById(id).classList.add('open')}
 function closeModal(id){document.getElementById(id).classList.remove('open')}
+async function loadSetupStatus(){
+  const el=document.getElementById('setup-list');
+  try{
+    const r=await fetch('/api/setup-status'); const d=await r.json();
+    const nb=document.getElementById('setup-nb'); if(nb){nb.textContent=`${d.ok_count}/${d.total}`; nb.style.background = d.all_ok?'rgba(34,197,94,.18)':'rgba(239,68,68,.18)'; nb.style.color = d.all_ok?'#22c55e':'#ef4444';}
+    el.innerHTML = d.checks.map(c=>{
+      const icon = c.ok ? '<i class="ti ti-circle-check-filled" style="color:#22c55e"></i>' : '<i class="ti ti-circle-x-filled" style="color:#ef4444"></i>';
+      const val = c.value ? `<div style="font-size:10.5px;color:var(--t3);margin-top:2px;direction:ltr;text-align:left">${c.value}</div>` : '';
+      const fix = c.ok ? '' : `<div style="font-size:10.5px;color:#f59e0b;margin-top:4px;line-height:1.7">${c.fix}</div>`;
+      return `<div style="padding:11px 0;border-bottom:1px solid var(--card-b);display:flex;gap:10px">
+        <div style="flex-shrink:0;font-size:16px">${icon}</div>
+        <div style="flex:1"><div style="font-size:12.5px;font-weight:700;color:var(--t1)">${c.label}</div>${val}${fix}</div>
+      </div>`;
+    }).join('');
+  }catch(e){ el.innerHTML = '<p style="color:#ef4444;font-size:12px">خطا در گرفتن وضعیت</p>'; }
+}
 let prevTraf=0,ch1,ch2,ch3;
 async function loadXrayStatus(){
   const xb=document.getElementById('xray-status-badge'),mb=document.getElementById('mux-status-badge');
-  const rb=document.getElementById('reality-status-badge'),pb=document.getElementById('pq-status-badge');
   try{
     const r=await authF('/api/xray/status');const d=await r.json();
     if(d.state==='connected'){
       xb.innerHTML='<span style="color:var(--green-t)">● متصل و پاسخگو</span>';
       mb.innerHTML='<span style="color:var(--green-t);text-shadow:0 0 8px var(--green)">● فعال</span>';
-      const rConf=d.reality&&d.reality.configured;
-      rb.innerHTML=rConf?'<span style="color:var(--green-t)">● کانفیگ شده · sni='+esc(d.reality.server_name||'')+'</span>':'<span style="color:var(--t3)">○ کانفیگ نشده</span>';
-      const pConf=d.post_quantum&&d.post_quantum.configured;
-      pb.innerHTML=pConf?'<span style="color:var(--green-t)">● کانفیگ شده (ML-KEM-768+X25519)</span>':'<span style="color:var(--t3)" title="نیازمند Xray-core v26+">○ کانفیگ نشده</span>';
     }else if(d.state==='disabled'){
       xb.innerHTML='<span style="color:var(--t3)">○ غیرفعال (XRAY_ENABLED=false)</span>';
       mb.innerHTML='<span style="color:var(--red-t)">● غیرفعال</span>';
-      rb.innerHTML='<span style="color:var(--t3)">○ غیرفعال</span>';
-      pb.innerHTML='<span style="color:var(--t3)">○ غیرفعال</span>';
     }else{
       xb.innerHTML='<span style="color:var(--red-t)" title="'+esc(d.detail||'')+'">● در دسترس نیست</span>';
       mb.innerHTML='<span style="color:var(--red-t)">● غیرفعال</span>';
-      rb.innerHTML='<span style="color:var(--red-t)">● در دسترس نیست</span>';
-      pb.innerHTML='<span style="color:var(--red-t)">● در دسترس نیست</span>';
     }
   }catch(e){
     xb.innerHTML='<span style="color:var(--red-t)">● خطا در بررسی</span>';
     mb.innerHTML='<span style="color:var(--red-t)">● غیرفعال</span>';
-    if(rb)rb.innerHTML='<span style="color:var(--red-t)">● خطا</span>';
-    if(pb)pb.innerHTML='<span style="color:var(--red-t)">● خطا</span>';
   }
-}
-function populateXnUuidSelect(){
-  const sel=document.getElementById('xn-uuid');
-  if(!sel) return;
-  sel.innerHTML=(allLinksList||[]).map(l=>`<option value="${l.uuid}">${esc(l.label)} (${l.uuid.slice(0,8)}…)</option>`).join('') || '<option value="">— هنوز کانفیگی نساختی —</option>';
-}
-async function loadXrayNativeLinks(){
-  const uid=document.getElementById('xn-uuid').value;
-  const out=document.getElementById('xn-out');
-  if(!uid){ toast('اول یک کانفیگ بساز','err'); return; }
-  const host=document.getElementById('xn-host').value.trim();
-  const rport=document.getElementById('xn-rport').value.trim();
-  const pport=document.getElementById('xn-pport').value.trim();
-  const qs=new URLSearchParams();
-  if(host)qs.set('host',host); if(rport)qs.set('reality_port',rport); if(pport)qs.set('pq_port',pport);
-  out.innerHTML='در حال گرفتن لینک…';
-  try{
-    const r=await authF('/api/xray/links/'+uid+'?'+qs.toString());
-    const d=await r.json();
-    if(!d.ok){ out.innerHTML='<span style="color:var(--red-t)">'+esc(d.error||'خطا')+'</span>'; return; }
-    let html='';
-    if(d.warning) html+=`<div style="color:var(--amber);margin-bottom:8px">⚠️ ${esc(d.warning)}</div>`;
-    html += xnLinkBlock('REALITY (Vision)', d.reality);
-    html += xnLinkBlock('VLESS Post-Quantum', d.post_quantum);
-    out.innerHTML=html;
-  }catch(e){ out.innerHTML='<span style="color:var(--red-t)">خطای شبکه</span>'; }
-}
-function xnLinkBlock(title, info){
-  if(!info.available) return `<div style="margin-bottom:8px"><b>${title}:</b> <span style="color:var(--t3)">${esc(info.note||'در دسترس نیست')}</span></div>`;
-  const id='xn-'+title.replace(/[^a-zA-Z]/g,'');
-  return `<div style="margin-bottom:8px"><b>${title}:</b>
-    <div style="display:flex;gap:6px;margin-top:4px">
-      <input id="${id}" readonly value="${esc(info.link)}" style="flex:1;font-family:monospace;font-size:10px">
-      <button class="btn btn-sm" onclick="copyXn('${id}')"><i class="ti ti-copy"></i></button>
-      <a class="btn btn-sm" href="${esc(info.link)}" style="text-decoration:none" title="باز کردن مستقیم تو اپ کلاینت (v2rayNG/NekoBox/Hiddify و…)"><i class="ti ti-bolt"></i></a>
-    </div></div>`;
-}
-function copyXn(id){
-  const el=document.getElementById(id);
-  el.select(); document.execCommand('copy');
-  toast('کپی شد','ok');
 }
 async function fetchStats(){
   try{
@@ -1824,7 +1837,6 @@ async function loadLinks(){
     document.getElementById('lsummary').innerHTML=links.length?links.slice(0,6).map(l=>`<div class="sr"><span class="sr-k" style="gap:5px"><i class="ti ${l.expired?'ti-calendar-x':l.active?'ti-circle-check':'ti-circle-x'}" style="color:${l.expired?'var(--amber)':l.active?'var(--green)':'var(--red)'}"></i>${esc(l.label)}</span><span class="sr-v" style="font-size:10px">${fmtB(l.used_bytes)} / ${l.limit_bytes===0?'∞':fmtB(l.limit_bytes)}</span></div>`).join(''):'<div class="empty"><i class="ti ti-link-off"></i><p>کانفیگی وجود ندارد</p></div>';
     renderLinksGrid();
     populateOwnerSelect();
-    populateXnUuidSelect();
   }catch(e){console.error(e)}
 }
 let allUsersList=[];
@@ -2394,15 +2406,10 @@ function wsConn(){const u=document.getElementById('ws-uuid').value.trim();if(!u)
 function wsSend(){const m=document.getElementById('ws-msg').value;if(!m||!ws||ws.readyState!==1)return;ws.send(m);wsLog('sent','ارسال: '+m);document.getElementById('ws-msg').value=''}
 function wsDisc(){if(ws)ws.close()}
 document.addEventListener('DOMContentLoaded',async()=>{
-  // X5.3 FIX: initCharts و پرشدن UI پایه دیگه پشت await checkAuth() قفل نیست —
-  // این همون علتِ «بعضی گزینه‌ها دیر دیده می‌شه» بود: قبلاً کل صفحه تا رسیدن
-  // پاسخ /api/me معطل می‌موند و محو به‌نظر می‌رسید. حالا اسکلت صفحه فوری ساخته
-  // می‌شه، auth موازی چک می‌شه، و اگه نامعتبر بود همون لحظه ریدایرکت می‌کنه.
+  await checkAuth();
   initCharts();
   document.getElementById('set-host').textContent=location.host;
-  const authOk = await checkAuth();
-  if(authOk===false) return; // checkAuth خودش ریدایرکت به لاگین رو انجام می‌ده
-  fetchStats();loadUsers();loadLinks();loadXrayStatus();
+  fetchStats();loadUsers();loadLinks();loadXrayStatus();loadSetupStatus();
   setInterval(fetchStats,4000);
   setInterval(loadXrayStatus,15000);
   setInterval(()=>{

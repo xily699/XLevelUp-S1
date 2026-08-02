@@ -32,14 +32,10 @@ GRPCURL_BIN = shutil.which("grpcurl") or "/usr/local/bin/grpcurl"
 
 # چهار inbound که با xray/config.json.template ساخته می‌شن — REALITY هم اضافه شد
 # (کلید x25519ش تو start.sh یه‌بار ساخته و رو دیسک پایدار نگه داشته می‌شه):
-XRAY_INBOUND_TAGS = ("vless-ws-xray", "vless-grpc", "vless-splithttp", "vless-reality-vision", "vless-pq-encryption")
+XRAY_INBOUND_TAGS = ("vless-ws-xray", "vless-grpc", "vless-splithttp", "vless-reality-vision")
 
 # فقط این تگ به flow نیاز داره (بقیه اگه xtls-rprx-vision بگیرن اتصال می‌شکنه):
 REALITY_TAG = "vless-reality-vision"
-
-# X5.3: تگ inbound جدید «VLESS Post-Quantum Encryption» (ML-KEM-768 + X25519).
-# برخلاف REALITY، این تگ نیاز به TLS بیرونی نداره — امنیتش داخل خودِ VLESS است.
-PQ_TAG = "vless-pq-encryption"
 
 
 def bridge_token_ok(token: str | None) -> bool:
@@ -93,46 +89,6 @@ def reality_client_link(uuid: str, server_ip_or_domain: str, port: int, remark: 
     return f"vless://{uuid}@{server_ip_or_domain}:{port}?{q}#{quote(remark)}"
 
 
-def _pq_env_file() -> str:
-    return os.path.join(os.environ.get("DATA_DIR", "/data"), "x5g_vless_pq.env")
-
-
-def pq_info() -> dict:
-    """اطلاعات عمومی VLESS Post-Quantum Encryption. رشته‌ی «encryption» همون
-    چیزیه که کلاینت لازم داره (شبیه public key) — رشته‌ی «decryption» هرگز از
-    اینجا برنمی‌گرده چون فقط سمت سرور/Xray معتبره و نباید به بیرون درز کنه."""
-    path = _pq_env_file()
-    info = {"configured": False, "xray_version_note": "نیازمند Xray-core v26.x یا بالاتر (دستور «xray vlessenc»)"}
-    try:
-        if os.path.exists(path):
-            kv = {}
-            with open(path) as f:
-                for line in f:
-                    if "=" in line:
-                        k, v = line.strip().split("=", 1)
-                        kv[k] = v
-            enc = kv.get("VLESS_PQ_ENCRYPTION", "")
-            dec_is_none = kv.get("VLESS_PQ_DECRYPTION", "none") == "none"
-            info["configured"] = bool(enc) and not dec_is_none
-            info["encryption_param"] = enc
-    except Exception as e:
-        logger.warning(f"[xray_bridge] pq_info خواندنی نبود: {e}")
-    return info
-
-
-def pq_client_link(uuid: str, server_ip_or_domain: str, port: int, remark: str = "X5G-PQ") -> str | None:
-    """لینک vless:// برای inbound جدید VLESS Post-Quantum Encryption. برخلاف
-    REALITY، اینجا security=none است چون رمزنگاری داخل خودِ VLESS انجام می‌شه —
-    نه یک لایه‌ی TLS بیرونی. نیازمند کلاینتی که از encryption غیر از none
-    پشتیبانی کنه (نسخه‌های خیلی جدید Xray-core/v2rayN/v2rayNG)."""
-    info = pq_info()
-    if not info.get("configured"):
-        return None
-    from urllib.parse import quote
-    q = f"security=none&type=tcp&encryption={quote(info['encryption_param'], safe='')}"
-    return f"vless://{uuid}@{server_ip_or_domain}:{port}?{q}#{quote(remark)}"
-
-
 async def _run(cmd: list[str], timeout: float = 6.0) -> tuple[int, str, str]:
     try:
         proc = await asyncio.create_subprocess_exec(
@@ -171,7 +127,6 @@ async def xray_status() -> dict:
         "inbounds": list(XRAY_INBOUND_TAGS),
         "tracked_stats": stat_count,
         "reality": reality_info(),
-        "post_quantum": pq_info(),
         "detail": "Xray-core متصل و پاسخگوست.",
     }
 
@@ -184,17 +139,14 @@ async def xray_add_user(uuid: str, email: str) -> dict:
         return {"ok": False, "skipped": True}
     results = {}
     for tag in XRAY_INBOUND_TAGS:
-        # نکته: «packetEncoding: xudp» (برای UDP به‌صورت full-cone — کیفیت
-        # گیمینگ/صدا بهتر) یک تنظیم سمت outbound/کلاینت است، نه سمت Account
-        # سرور؛ اضافه‌کردنش اینجا به AddUserOperation فقط باعث خطای grpcurl
-        # می‌شه. کلاینت‌هایی مثل v2rayN/NekoBox خودشون این گزینه رو در تنظیمات
-        # outbound دارن — نیازی به تغییر سمت سرور نیست.
-        account = {"@type": "xray.proxy.vless.Account", "id": uuid, "flow": "xtls-rprx-vision" if tag == REALITY_TAG else ""}
         req = {
             "tag": tag,
             "operation": {
                 "@type": "xray.app.proxyman.command.AddUserOperation",
-                "user": {"email": email, "account": account},
+                "user": {
+                    "email": email,
+                    "account": {"@type": "xray.proxy.vless.Account", "id": uuid, "flow": "xtls-rprx-vision" if tag == REALITY_TAG else ""},
+                },
             },
         }
         rc, out, err = await _run([
